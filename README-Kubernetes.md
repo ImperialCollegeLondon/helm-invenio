@@ -2,7 +2,7 @@
 
 1. [Docker credentials](#docker-credentials)
 2. [Routing](#routing)
-2. [Instance setup](#instance-setup)
+3. [Instance setup](#instance-setup)
 
 ## Pre-requisites
 
@@ -33,7 +33,7 @@ web:
 
 ## Routing
 
-Before installing you need to configure a few things in a
+Before installing, you need to configure a few things in a
 `values-overrides.yaml` file.
 
 ```yaml
@@ -43,11 +43,11 @@ ingress:
 
 The ingress is configured using the following variables:
 
-Parameter | Description | Default
-----------|-------------|--------
-`ingress.enabled` | Whether to enable ingress | `true`
-`ingress.class` | Class of the ingress if enabled | `nginx-internal`
-`ingress.sslSecretName` | The ingress ssl secret for HTTPS | `your-ssl-secret`
+| Parameter               | Description                      | Default           |
+|-------------------------|----------------------------------|-------------------|
+| `ingress.enabled`       | Whether to enable ingress        | `true`            |
+| `ingress.class`         | Class of the ingress if enabled  | `nginx-internal`  |
+| `ingress.sslSecretName` | The ingress ssl secret for HTTPS | `your-ssl-secret` |
 
 ## Instance setup
 
@@ -58,7 +58,7 @@ kubectl get pods --namespace invenio
 kubectl exec -it <web-pod> bash --namespace invenio  # <web-pod> is found with the previous command
 ```
 
-Then you can run invenio commands and setup your instance
+Then you can run invenio commands and set up your instance
 
 ```bash
 . scl_source enable rh-python36
@@ -66,7 +66,7 @@ invenio db init # If the db does not exist already
 invenio db create
 invenio index init
 invenio index queue init purge
-invenio files location --default 'default-location'  $(invenio shell --no-term-title -c "print(app.instance_path)")'/data'
+invenio files location --default 'default-location' $(invenio shell --no-term-title -c "print(app.instance_path)")'/data'
 invenio roles create admin
 invenio access allow superuser-access role admin
 invenio rdm-records demo

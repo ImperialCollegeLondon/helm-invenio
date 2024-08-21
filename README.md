@@ -30,7 +30,7 @@ change.
 - The web/worker docker images. If you need credentials you can see how to set
   them up in [Kubernetes](README-Kubernetes/#docker-credentials).
 
-``` yaml
+```yaml
 host: yourhost.localhost
 
 web:
@@ -52,21 +52,16 @@ invenio:
     demo_data: true  # for a demo set of records
     default_users: # for creating users on install
         "user@example.com": "password"
-    secret-key: "my-very-safe-secret"
+    secret_key: "my-very-safe-secret"
 
 rabbitmq:
-    default_password: "mq_password"
-    # Edit the following URI with the values from just above
-    celery_broker_uri: "amqp://guest:mq_password@mq:5672/"
+    auth:
+        password: "mq_password"
 
 postgresql:
-    user: "invenio"
-    password: "db_password"
-    host: "db"
-    port: "5432"
-    database: "invenio"
-    # Edit the following URI with the values from just above
-    sqlalchemy_db_uri: "postgresql+psycopg2://invenio:db_password@db:5432/invenio"
+    auth:
+        password: "db_password"
+
 ```
 
 It's however **strongly advised** to override them either through a value file
@@ -80,8 +75,8 @@ flags can be used in the same command.
 ```bash
 DB_PASSWORD=$(openssl rand -hex 8)
 helm install -f safe-values.yaml \
-  --set search.password=$SEARCH_PASSWORD \
-  --set postgresql.password=$DB_PASSWORD \
+  --set rabbitmq.auth.password=$RABBITMQ_PASSWORD \
+  --set postgresql.auth.password=$DB_PASSWORD \
   invenio ./invenio-k8s --namespace invenio
 ```
 
