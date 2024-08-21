@@ -185,6 +185,8 @@ redis:
       requests:
         cpu: 500m
         memory: 500Mi
+  persistence:
+    size: 8Gi
 
 rabbitmq:
   enabled: true
@@ -197,6 +199,8 @@ rabbitmq:
     requests:
       cpu: "1"
       memory: 2Gi
+  persistence:
+    size: 8Gi
 
 rabbitmqExternal: {}
 
@@ -220,11 +224,15 @@ postgresql:
   auth:
     username: invenio
     database: invenio
+  persistence:
+    size: 8Gi
 
 postgresqlExternal: {}
 
 opensearch:
   enabled: true
+  persistence:
+    size: 8Gi
 
 externalOpensearch: {}
 
