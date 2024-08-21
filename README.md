@@ -1,4 +1,4 @@
-# [Beta] Invenio Helm Chart
+# [Beta] Invenio Helm Chart v. 0.2.1
 
 This repository contains the helm chart to deploy an Invenio instance.
 
@@ -20,6 +20,16 @@ change.
 
 - [Kubernetes](README-Kubernetes.md)
 - [OpenShift](README-OpenShift.md)
+
+## Dependencies
+This Helm chart uses Bitnami charts as [dependencies](https://helm.sh/docs/chart_best_practices/dependencies/)
+for the following exact pinned versions:
+* Opensearch 1.0.0 ([values.yaml](https://github.com/bitnami/charts/blob/opensearch/1.0.0/bitnami/opensearch/values.yaml))
+* PostgreSQL 14.0.1 ([values.yaml](https://github.com/bitnami/charts/blob/postgresql/14.0.1/bitnami/postgresql/values.yaml))
+* RabbitMQ 12.9.3 ([values.yaml](https://github.com/bitnami/charts/blob/rabbitmq/12.9.3/bitnami/rabbitmq/values.yaml))
+* Redis 18.12.0 ([values.yaml](https://github.com/bitnami/charts/blob/redis/18.12.0/bitnami/redis/values.yaml))
+
+Each one of them has a persistent volume claim for 8gb by default. Note that by default Redis will spin up 3 replicas.
 
 ## Configuration
 
