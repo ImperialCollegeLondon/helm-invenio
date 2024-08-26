@@ -1,7 +1,7 @@
 ---
 
 global:
-  timezone: "Europe/Zurich"
+  timezone: "Europe/London"
 
 ingress:
   annotations: {}
