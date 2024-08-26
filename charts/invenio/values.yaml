@@ -18,6 +18,7 @@ invenio:
   init: false
   default_users: []  # Requires invenio.init=true
   demo_data: false  # Setting invenio.demo_data=true requires also setting default_users!
+  create_fixtures: false # Also requires invenio.init=true. Indexing can take several minutes!!
   sentry:
     enabled: false
     existing_secret: false
