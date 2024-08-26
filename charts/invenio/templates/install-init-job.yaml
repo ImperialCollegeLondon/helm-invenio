@@ -25,6 +25,11 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+      - name: wait-for-opensearch
+        image: busybox
+        command: [ "/bin/sh","-c" ]
+        args: [ "until echo 'Waiting for opensearch...' && nc -vz -w 5 {{ include "invenio.opensearch.hostname" $ }} 9200; do sleep 10; done;" ]
       containers:
       - name: install-init
         image: {{ required "Missing .Values.web.image" .Values.web.image }}
