@@ -146,6 +146,8 @@ worker:
       memory: 1Gi
   volumes:
     enabled: false
+  livenessProbe:
+    initialDelaySeconds: 20
 
 workerBeat:
   resources:
