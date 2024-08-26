@@ -169,7 +169,6 @@ redis:
   auth:
     enabled: false  # Dangerous! This lets Invenio connect to Redis unauthenticated!
   master:
-    disableCommands: []  # Dangerous! This lets us run the `FLUSHALL` and `FLUSHDB` commands! Unfortunately, they are required by the wipe_recreate.sh script when installing Invenio.
     resources:
       limits:
         cpu: "1"
@@ -178,7 +177,6 @@ redis:
         cpu: 500m
         memory: 500Mi
   replica:
-    disableCommands: []  # Dangerous! This lets us run the `FLUSHALL` and `FLUSHDB` commands! Unfortunately, they are required by the wipe_recreate.sh script when installing Invenio.
     resources:
       limits:
         cpu: "1"
