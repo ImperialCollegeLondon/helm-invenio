@@ -10,17 +10,29 @@ metadata:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "1"
 {{/*    "helm.sh/hook-delete-policy": hook-succeeded*/}}
-{{- $cmd := "invenio db init && invenio db create && invenio index init && invenio index queue init purge && invenio files location --default 'default-location'  $(invenio shell --no-term-title -c \"print(app.instance_path)\")'/data' && invenio roles create admin && invenio access allow superuser-access role admin" -}}
+  {{- $cmd := "invenio db init && invenio db create && invenio index init && invenio index queue init purge && invenio files location --default 'default-location'  $(invenio shell --no-term-title -c \"print(app.instance_path)\")'/data' && invenio roles create admin && invenio access allow superuser-access role admin" -}}
 {{- range $usr, $pass := .Values.invenio.default_users -}}
-  {{- $cmd = printf "%s && invenio users create --active --password=%s %s" $cmd $pass $usr -}}
+  {{- $cmd = printf "%s && invenio users create --active --confirm --password=%s %s" $cmd $pass $usr -}}
 {{- end -}}
 {{- if and .Values.invenio.demo_data .Values.invenio.default_users -}}
   {{- $cmd = cat $cmd "&& invenio rdm-records demo" -}}
+{{- end -}}
+{{- if .Values.invenio.create_fixtures -}}
+  {{- $cmd = cat $cmd "&& invenio rdm-records fixtures" -}}
+
+  {{- if .Values.invenio.import_test_data -}}
+    {{- $cmd = cat $cmd "&& cd test_data && python download_test_data.py && python create_test_data_records.py" -}}
+  {{- end -}}
 {{- end -}}
 
 spec:
   template:
     spec:
+      initContainers:
+      - name: wait-for-opensearch
+        image: busybox
+        command: [ "/bin/sh","-c" ]
+        args: [ "until echo 'Waiting for opensearch...' && nc -vz -w 5 {{ include "invenio.opensearch.hostname" $ }} 9200; do sleep 10; done;" ]
       containers:
       - name: install-init
         image: {{ required "Missing .Values.web.image" .Values.web.image }}

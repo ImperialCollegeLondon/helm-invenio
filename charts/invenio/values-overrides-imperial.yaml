@@ -1,0 +1,65 @@
+
+invenio:
+    init: true  # initiates db, index, and admin roles
+    hostname: "icl-invenio-dev.uksouth.cloudapp.azure.com"
+    secret_key: "REPLACE-ME"
+    security_login_salt: "REPLACE-ME"
+    csrf_secret_salt: "REPLACE-ME"
+    create_fixtures: true
+    import_test_data: true
+
+web:
+  image: "ghcr.io/imperialcollegelondon/fair-data-repository:develop"
+  readinessProbe:
+    failureThreshold: 3
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 1
+  startupProbe:
+    failureThreshold: 3
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 5
+  resources:
+    requests:
+      cpu: 750m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+worker:
+  image: "ghcr.io/imperialcollegelondon/fair-data-repository:develop"
+  livenessProbe:
+    initialDelaySeconds: 120
+
+persistence:
+  enabled: true
+  storage_class: "azure-invenio-storage-class"
+
+haproxy:
+  enabled: false
+
+flower:
+  enabled: false
+
+rabbitmq:
+    auth:
+      password: "REPLACE-ME"
+
+postgresql:
+    auth:
+      password: "REPLACE-ME"
+
+ingress:
+  enabled: true
+  class: "webapprouting.kubernetes.azure.com"
+
+# Certmanager
+podLabels:
+  azure.workload.identity/use: "true"
+serviceAccount:
+  labels:
+    azure.workload.identity/use: "true"

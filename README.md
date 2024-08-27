@@ -1,4 +1,4 @@
-# [Beta] Invenio Helm Chart
+# [Beta] Invenio Helm Chart v. 0.2.1
 
 This repository contains the helm chart to deploy an Invenio instance.
 
@@ -21,6 +21,16 @@ change.
 - [Kubernetes](README-Kubernetes.md)
 - [OpenShift](README-OpenShift.md)
 
+## Dependencies
+This Helm chart uses Bitnami charts as [dependencies](https://helm.sh/docs/chart_best_practices/dependencies/)
+for the following exact pinned versions:
+* Opensearch 1.0.0 ([values.yaml](https://github.com/bitnami/charts/blob/opensearch/1.0.0/bitnami/opensearch/values.yaml))
+* PostgreSQL 14.0.1 ([values.yaml](https://github.com/bitnami/charts/blob/postgresql/14.0.1/bitnami/postgresql/values.yaml))
+* RabbitMQ 12.9.3 ([values.yaml](https://github.com/bitnami/charts/blob/rabbitmq/12.9.3/bitnami/rabbitmq/values.yaml))
+* Redis 18.12.0 ([values.yaml](https://github.com/bitnami/charts/blob/redis/18.12.0/bitnami/redis/values.yaml))
+
+Each one of them has a persistent volume claim for 8gb by default. Note that by default Redis will spin up 3 replicas.
+
 ## Configuration
 
 :warning: Before installing you need to configure two things in your
@@ -30,7 +40,7 @@ change.
 - The web/worker docker images. If you need credentials you can see how to set
   them up in [Kubernetes](README-Kubernetes/#docker-credentials).
 
-``` yaml
+```yaml
 host: yourhost.localhost
 
 web:
@@ -52,21 +62,16 @@ invenio:
     demo_data: true  # for a demo set of records
     default_users: # for creating users on install
         "user@example.com": "password"
-    secret-key: "my-very-safe-secret"
+    secret_key: "my-very-safe-secret"
 
 rabbitmq:
-    default_password: "mq_password"
-    # Edit the following URI with the values from just above
-    celery_broker_uri: "amqp://guest:mq_password@mq:5672/"
+    auth:
+        password: "mq_password"
 
 postgresql:
-    user: "invenio"
-    password: "db_password"
-    host: "db"
-    port: "5432"
-    database: "invenio"
-    # Edit the following URI with the values from just above
-    sqlalchemy_db_uri: "postgresql+psycopg2://invenio:db_password@db:5432/invenio"
+    auth:
+        password: "db_password"
+
 ```
 
 It's however **strongly advised** to override them either through a value file
@@ -80,8 +85,8 @@ flags can be used in the same command.
 ```bash
 DB_PASSWORD=$(openssl rand -hex 8)
 helm install -f safe-values.yaml \
-  --set search.password=$SEARCH_PASSWORD \
-  --set postgresql.password=$DB_PASSWORD \
+  --set rabbitmq.auth.password=$RABBITMQ_PASSWORD \
+  --set postgresql.auth.password=$DB_PASSWORD \
   invenio ./invenio-k8s --namespace invenio
 ```
 

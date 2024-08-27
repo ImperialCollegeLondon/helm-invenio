@@ -97,7 +97,7 @@ spec:
                 - /bin/bash
                 - -c
                 - "celery -A {{ .Values.worker.app }} inspect ping -d celery@$(hostname)"
-            initialDelaySeconds: 20
+            initialDelaySeconds: {{ .Values.worker.livenessProbe.initialDelaySeconds }}
             timeoutSeconds: 30
           volumeMounts:
             {{- if .Values.persistence.enabled }}
