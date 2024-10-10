@@ -6,6 +6,10 @@ invenio:
     security_login_salt: "REPLACE-ME"
     csrf_secret_salt: "REPLACE-ME"
     create_fixtures: true
+    extra_config:
+      ICL_OAUTH_CLIENT_ID: "REPLACE-ME"
+      ICL_OAUTH_CLIENT_SECRET: "REPLACE-ME"
+      ICL_OAUTH_WELL_KNOWN_URL: "REPLACE-ME"
 
 web:
   image: "ghcr.io/imperialcollegelondon/fair-data-repository:develop"
