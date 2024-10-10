@@ -20,10 +20,6 @@ metadata:
 {{- end -}}
 {{- if .Values.invenio.create_fixtures -}}
   {{- $cmd = cat $cmd "&& invenio rdm-records fixtures" -}}
-
-  {{- if .Values.invenio.import_test_data -}}
-    {{- $cmd = cat $cmd "&& cd test_data && python download_test_data.py && python create_test_data_records.py" -}}
-  {{- end -}}
 {{- end -}}
 
 spec:

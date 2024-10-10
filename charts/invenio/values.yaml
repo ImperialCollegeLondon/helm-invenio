@@ -19,7 +19,6 @@ invenio:
   default_users: []  # Requires invenio.init=true
   demo_data: false  # Setting invenio.demo_data=true requires also setting default_users!
   create_fixtures: false # Also requires invenio.init=true. Indexing can take several minutes!!
-  import_test_data: false # Download and import Imperial test data. Requires create_fixtures.
   sentry:
     ## @param invenio.sentry.enabled Enable Sentry.io integration
     ##

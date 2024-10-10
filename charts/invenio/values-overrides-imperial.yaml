@@ -6,7 +6,6 @@ invenio:
     security_login_salt: "REPLACE-ME"
     csrf_secret_salt: "REPLACE-ME"
     create_fixtures: true
-    import_test_data: true
 
 web:
   image: "ghcr.io/imperialcollegelondon/fair-data-repository:develop"
