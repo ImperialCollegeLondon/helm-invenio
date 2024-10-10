@@ -2,9 +2,13 @@ apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-production
+  annotations:
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/managed-by: "Helm"
 spec:
   acme:
-    email: sysadmin+icl@cottagelabs.com
+    email: {{ .Values.clusterissuer.email }}
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       # Secret resource used to store the account's private key.
@@ -15,4 +19,4 @@ spec:
     solvers:
       - http01:
            ingress:
-              class: webapprouting.kubernetes.azure.com
+              class: {{ .Values.ingress.class }}

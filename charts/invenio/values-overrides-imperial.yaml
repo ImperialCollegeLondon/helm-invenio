@@ -59,3 +59,6 @@ ingress:
   annotations:
     kubernetes.io/ingress.class: "webapprouting.kubernetes.azure.com"
     cert-manager.io/cluster-issuer: "letsencrypt-production"
+
+clusterissuer:
+  email: "sysadmin+icl@cottagelabs.com"
