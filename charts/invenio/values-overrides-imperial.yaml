@@ -55,3 +55,7 @@ postgresql:
 ingress:
   enabled: true
   class: "webapprouting.kubernetes.azure.com"
+  tlsSecretNameOverride: "invenio-letsencrypt-secret"
+  annotations:
+    kubernetes.io/ingress.class: "webapprouting.kubernetes.azure.com"
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
