@@ -1,13 +1,10 @@
 # [Beta] Invenio Helm chart: Imperial Fair Data Repository instructions
 
-**Currently for DEV / CI - using letsencrypt certificates on nginx ingress
+**Currently for DEV / CI - using letsencrypt certificates on nginx ingress**
 
 The deployment takes about 2-3 minutes. We've added an init container to the install-init
 job in order to wait for OpenSearch to become available. This in turn has required an
 increase in the initial delay of the startup probes for the worker and worker-beat pods.
-
-~~Kubectl and the cluster have been upgraded to v. 1.31.~~
-
 
 # Setup
 
@@ -28,6 +25,7 @@ In the command above, `aks` refers to the Azure Kubernetes Service, it's editing
 
 ## Enable Azure features
 
+### Storage
 In order to have a ReadWriteMany shared volume, a StorageClass has been
 [created](https://learn.microsoft.com/en-us/azure/aks/azure-csi-files-storage-provision#create-a-storage-class) at `templates/azure-file-sc.yaml`.
 
@@ -35,6 +33,8 @@ To use this, the Storage feature needs to be enabled on the subscription, via:
 ```bash
 az provider register --namespace Microsoft.Storage
 ```
+
+### Approuting
 The application routing add-on must be [enabled](https://learn.microsoft.com/en-us/azure/aks/app-routing#enable-on-an-existing-cluster) 
 to correspond with the `ingressClassName` for Azure from that documentation, i.e. `class: "webapprouting.kubernetes.azure.com"`
 
@@ -42,7 +42,10 @@ to correspond with the `ingressClassName` for Azure from that documentation, i.e
 az aks approuting enable --resource-group invenio-dev --name invenio-dev
 ```
 
-~~[Set up a custom domain name and SSL certificate with the application routing add-on](https://learn.microsoft.com/en-us/azure/aks/app-routing-dns-ssl)~~
+### Azure DNS
+
+**FIXME:** for the timebeing, we are _manually via GUI_ annotating the Public IP created in the above step with a DNS name, which gives us an Azure FQDN, e.g. `imperial-invenio-dev.uksouth.cloudapp.azure.com`
+The same `hostname` must be used in `values-overrides-imperial.yml` to access the application.
 
 ## Install CertManager on the cluster
 
@@ -65,7 +68,6 @@ helm install \
 ```
 
 This installation occurs on the same cluster but in a different namespace to the InvenioRDM application.
-
 
 # Deployment commands
 To install, cd into `charts/invenio`, first run
@@ -95,11 +97,22 @@ helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set rabbitmq.auth.password=<your_mq_password> \
   --set postgresql.auth.password=<your_pg_password>
 ```
+`fair-data-repository-dev` is the installation name in `helm`.
 
 If you want to apply a change of configuration you can upgrade like so:
 ```bash
-helm upgrade -f values-overrides-imperial.yaml --debug data-repository-dev .
+helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . \
+  --set invenio.secret_key=<your_key> \
+  --set invenio.security_login_salt=<your_login_salt> \
+  --set invenio.csrf_secret_salt=<another_secret_salt> \
+  --set invenio.extra_config.ICL_OAUTH_CLIENT_ID=<id_provided> \
+  --set invenio.extra_config.ICL_OAUTH_CLIENT_SECRET=<key_provided> \
+  --set invenio.extra_config.ICL_OAUTH_WELL_KNOWN_URL=<url_provided> \
+  --set rabbitmq.auth.password=<your_mq_password> \
+  --set postgresql.auth.password=<your_pg_password>
 ```
+
+You **MUST** provide the same secrets as before if you wish for the existing data in the instance to be accessible
 
 If you want to uninstall you can run:
 ```bash
