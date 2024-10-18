@@ -44,7 +44,7 @@ az aks approuting enable --resource-group invenio-dev --name invenio-dev
 
 ### Azure DNS
 
-**FIXME:** for the timebeing, we are _manually via GUI_ annotating the Public IP created in the above step with a DNS name, which gives us an Azure FQDN, e.g. `imperial-invenio-dev.uksouth.cloudapp.azure.com`
+**FIXME:** for the timebeing, we are _manually via GUI_ annotating the Public IP created in the above step with a DNS name, which gives us an Azure FQDN, e.g. `icl-invenio-dev.uksouth.cloudapp.azure.com`
 The same `hostname` must be used in `values-overrides-imperial.yml` to access the application.
 
 ## Install CertManager on the cluster

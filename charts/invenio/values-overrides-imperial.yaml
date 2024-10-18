@@ -3,7 +3,7 @@
 
 invenio:
     init: true  # initiates db, index, and admin roles
-    hostname: "imperial-invenio-dev.uksouth.cloudapp.azure.com"
+    hostname: "icl-invenio-dev.uksouth.cloudapp.azure.com"
     #secret_key: "REPLACE-ME"
     #security_login_salt: "REPLACE-ME"
     #csrf_secret_salt: "REPLACE-ME"
