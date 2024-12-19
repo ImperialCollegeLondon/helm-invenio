@@ -34,6 +34,8 @@ To use this, the Storage feature needs to be enabled on the subscription, via:
 az provider register --namespace Microsoft.Storage
 ```
 
+TODO: explain service levels of storage persistence & their configuration SKUs
+
 ### Approuting
 The application routing add-on must be [enabled](https://learn.microsoft.com/en-us/azure/aks/app-routing#enable-on-an-existing-cluster) 
 to correspond with the `ingressClassName` for Azure from that documentation, i.e. `class: "webapprouting.kubernetes.azure.com"`
@@ -69,22 +71,29 @@ helm install \
 
 This installation occurs on the same cluster but in a different namespace to the InvenioRDM application.
 
-# Deployment commands
+### [Teardown Cert-Manager](https://cert-manager.io/v1.2-docs/installation/uninstall/kubernetes/)
+
+```shell
+helm --namespace cert-manager delete cert-manager
+kubectl delete namespace cert-manager
+```
+
+# InvenioRDM Deployment commands
 To install, cd into `charts/invenio`, first run
 
 ```bash
 helm dependency build
 ```
-To get the charts for opensearch, postgresql, rabbitmq, and redis.
+To get the charts for `opensearch`, `postgresql`, `rabbitmq`, and `redis`.
 
-Note that you can add the argument `--debug` for all helm commands.
+Note that you can add the argument `--debug` to all `helm` commands for a bit more verbosity.
 
 If the namespace invenio doesn't exist you need to add the argument `--create-namespace`.
-You can do a dry run of a helm command by adding, `--dry-run`.
+You can do a dry run of a `helm` command by adding, `--dry-run`.
 
 Some of the secret values in `values-overrides-imperial.yaml` have been obscured with the text `REPLACE-ME` and not checked into the repo.
 These need to be supplied at runtime (so that they can be templated via GitHub Secrets for CI). Unfortunately this makes the following setup
-commands rather lengthy. Feel free to use environment variables to ease the process.
+commands rather lengthy. Feel free to use environment variables to ease the process (see below).
 
 ```bash
 helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . [--create-namespace] \
@@ -97,7 +106,7 @@ helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set rabbitmq.auth.password=<your_mq_password> \
   --set postgresql.auth.password=<your_pg_password>
 ```
-`fair-data-repository-dev` is the installation name in `helm`.
+`fair-data-repository-dev` is the deployment name in `helm`, which you'll use for subsequent management commands.
 
 If you want to apply a change of configuration you can upgrade like so:
 ```bash
@@ -112,11 +121,69 @@ helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set postgresql.auth.password=<your_pg_password>
 ```
 
-You **MUST** provide the same secrets as before if you wish for the existing data in the instance to be accessible
+You **MUST** provide the same secrets as before if you wish for the existing data in the instance to be accessible.
+
+## Secrets generation and env templating
+
+Useful for generating these: `uuidgen`, `pwgen -N 1` for UUIDs and a single simple password, respectively. 
+
+```shell
+# A secret local shell script to create our app secrets
+# icl_secrets.sh
+export ICL_INVENIO_SECRET_KEY=`uuidgen`
+export ICL_INVENIO_SECURITY_SALT=`uuidgen`
+export ICL_INVENIO_CSRF_SALT=`uuidgen`
+export ICL_OAUTH_CLIENT_ID=<provided>
+export ICL_OAUTH_CLIENT_SECRET=<provided>
+export ICL_OAUTH_WELL_KNOWN_URL=<provided>
+export ICL_INVENIO_RABBITMQ_PW=`pwgen -N 1 27`
+export ICL_INVENIO_POSTGRES_PW=`pwgen -N 1 17`
+```
+
+Then using the install command:
+
+```shell
+helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . --create-namespace \
+  --set invenio.secret_key=$ICL_INVENIO_SECRET_KEY \
+  --set invenio.security_login_salt=$ICL_INVENIO_SECURITY_SALT \
+  --set invenio.csrf_secret_salt=$ICL_INVENIO_CSRF_SALT \
+  --set invenio.extra_config.ICL_OAUTH_CLIENT_ID=$ICL_OAUTH_CLIENT_ID \
+  --set invenio.extra_config.ICL_OAUTH_CLIENT_SECRET=$ICL_OAUTH_CLIENT_SECRET \
+  --set invenio.extra_config.ICL_OAUTH_WELL_KNOWN_URL=$ICL_OAUTH_WELL_KNOWN_URL \
+  --set rabbitmq.auth.password=$ICL_INVENIO_RABBITMQ_PW \
+  --set postgresql.auth.password=$ICL_INVENIO_POSTGRES_PW
+```
+
+## Checking on installation progress
+
+    kubectl get pods --namespace invenio
+
+    watch ...
+
+create users
+
+run data script
+
+## Observe the web logs
+
+To watch the logs from e.g. all web containers (running the Invenio app):
+
+```bash
+kubectl logs -f -l app=web -n invenio --max-log-requests=6
+```
+
+# Teardown
 
 If you want to uninstall you can run:
 ```bash
 helm uninstall fair-data-repository-dev -n invenio
+```
+Verify they're all destroyed with `kubectl get pods -n invenio`
+
+If you're redeploying and the `install-init` pod keeps reappearing, that means it's being recreated by the job. You can remove that explicitly via:
+
+```bash
+kubectl delete job install-init -n invenio
 ```
 
 Uninstalling a helm installation does not remove the 11 persistent volumes (PVs) and claims (PVCs) created. To see the
@@ -136,6 +203,8 @@ You can delete all pvcs with this command:
 ```bash
 kubectl delete pvc -n invenio --all
 ```
+
+# Scale
 
 To scale web or workers, you can run:
 ```bash
