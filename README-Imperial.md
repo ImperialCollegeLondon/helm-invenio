@@ -131,11 +131,11 @@ Useful for generating these: `uuidgen`, `pwgen -N 1` for UUIDs and a single simp
 # A secret local shell script to create our app secrets
 # icl_secrets.sh
 export ICL_INVENIO_SECRET_KEY=`uuidgen`
-export ICL_INVENIO_SECURITY_SALT=`uuidgen`
-export ICL_INVENIO_CSRF_SALT=`uuidgen`
-export ICL_OAUTH_CLIENT_ID=<provided>
-export ICL_OAUTH_CLIENT_SECRET=<provided>
-export ICL_OAUTH_WELL_KNOWN_URL=<provided>
+export ICL_INVENIO_SECURITY_LOGIN_SALT=`uuidgen`
+export ICL_INVENIO_CSRF_SECRET_SALT=`uuidgen`
+export ICL_INVENIO_OAUTH_CLIENT_ID=<provided>
+export ICL_INVENIO_OAUTH_CLIENT_SECRET=<provided>
+export ICL_INVENIO_OAUTH_WELL_KNOWN_URL=<provided>
 export ICL_INVENIO_RABBITMQ_PW=`pwgen -N 1 27`
 export ICL_INVENIO_POSTGRES_PW=`pwgen -N 1 17`
 ```
@@ -145,11 +145,11 @@ Then using the install command:
 ```shell
 helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . --create-namespace \
   --set invenio.secret_key=$ICL_INVENIO_SECRET_KEY \
-  --set invenio.security_login_salt=$ICL_INVENIO_SECURITY_SALT \
-  --set invenio.csrf_secret_salt=$ICL_INVENIO_CSRF_SALT \
-  --set invenio.extra_config.ICL_OAUTH_CLIENT_ID=$ICL_OAUTH_CLIENT_ID \
-  --set invenio.extra_config.ICL_OAUTH_CLIENT_SECRET=$ICL_OAUTH_CLIENT_SECRET \
-  --set invenio.extra_config.ICL_OAUTH_WELL_KNOWN_URL=$ICL_OAUTH_WELL_KNOWN_URL \
+  --set invenio.security_login_salt=$ICL_INVENIO_SECURITY_LOGIN_SALT \
+  --set invenio.csrf_secret_salt=$ICL_INVENIO_CSRF_SECRET_SALT \
+  --set invenio.extra_config.ICL_OAUTH_CLIENT_ID=$ICL_INVENIO_OAUTH_CLIENT_ID \
+  --set invenio.extra_config.ICL_OAUTH_CLIENT_SECRET=$ICL_INVENIO_OAUTH_CLIENT_SECRET \
+  --set invenio.extra_config.ICL_OAUTH_WELL_KNOWN_URL=$ICL_INVENIO_OAUTH_WELL_KNOWN_URL \
   --set rabbitmq.auth.password=$ICL_INVENIO_RABBITMQ_PW \
   --set postgresql.auth.password=$ICL_INVENIO_POSTGRES_PW
 ```
