@@ -1,3 +1,37 @@
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "invenio.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "invenio.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Selector labels
+*/}}
+{{- define "invenio.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "invenio.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "invenio.labels" -}}
+helm.sh/chart: {{ include "invenio.chart" . }}
+{{ include "invenio.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
 ###########################     Invenio hostname     ###########################
 {{/*
   This template renders the hostname for Invenio.
@@ -103,6 +137,30 @@
   {{- end }}
 {{- end -}}
 
+##########################     RabbitMQ protocol     ##########################
+{{/*
+  This template renders the protocol for RabbitMQ.
+*/}}
+{{- define "invenio.rabbitmq.protocol" -}}
+  {{- if .Values.rabbitmq.enabled }}
+    {{- "amqp" }}
+  {{- else }}
+    {{- required "Missing .Values.rabbitmqExternal.protocol" .Values.rabbitmqExternal.protocol }}
+  {{- end }}
+{{- end -}}
+
+##########################     RabbitMQ vhost     ##########################
+{{/*
+  This template renders the vhost for RabbitMQ.
+*/}}
+{{- define "invenio.rabbitmq.vhost" -}}
+  {{- if .Values.rabbitmq.enabled }}
+    {{- "" }}
+  {{- else }}
+    {{- required "Missing .Values.rabbitmqExternal.vhost" .Values.rabbitmqExternal.vhost }}
+  {{- end }}
+{{- end -}}
+
 ##########################     Celery broker URI     ##########################
 {{/*
   This template renders the URI for connecting to RabbitMQ.
@@ -112,7 +170,9 @@
   {{- $password := (include "invenio.rabbitmq.password" .) -}}
   {{- $port := (include "invenio.rabbitmq.amqpPort" .) -}}
   {{- $hostname := (include "invenio.rabbitmq.hostname" .) -}}
-  {{- printf "amqp://%s:%s@%s:%v/" $username $password $hostname $port }}
+  {{- $protocol := (include "invenio.rabbitmq.protocol" .) -}}
+  {{- $vhost := (include "invenio.rabbitmq.vhost" .) -}}
+  {{- printf "%s://%s:%s@%s:%v/%s" $protocol $username $password $hostname $port $vhost}}
 {{- end -}}
 
 ###########################     RabbitMQ API URI     ###########################
@@ -212,4 +272,30 @@
   {{- $port := include "invenio.postgresql.port" . -}}
   {{- $databaseName := include "invenio.postgresql.databaseName" . -}}
   {{- printf "postgresql+psycopg2://%s:%s@%s:%v/%s" $username $password $hostname $port $databaseName -}}
+{{- end -}}
+
+{{/*
+Get the sentry secret name
+*/}}
+{{- define "invenio.sentrySecretName" -}}
+{{- if .Values.invenio.sentry.existingSecret -}}
+  {{- print (tpl .Values.invenio.sentry.existingSecret .) -}}
+{{- else if  .Values.invenio.sentry.secret_name -}}
+  {{- print .Values.invenio.sentry.secret_name -}}  
+{{- else -}}
+  {{- "sentry-secrets" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Add sentry environmental variables
+*/}}
+{{- define "invenio.config.sentry" -}}
+{{- if .Values.invenio.sentry.enabled -}}
+- name: INVENIO_SENTRY_DSN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "invenio.sentrySecretName" . }}
+      key: {{ .Values.invenio.sentry.secretKeys.dsnKey }}
+{{- end }}
 {{- end -}}

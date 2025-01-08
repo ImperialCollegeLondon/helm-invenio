@@ -3,6 +3,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: web
+  labels:
+    {{- include "invenio.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.web.replicas }}
   selector:
@@ -37,6 +39,9 @@ spec:
           value: {{ include "invenio.rabbitmq.uri" . }}
         - name: INVENIO_SQLALCHEMY_DATABASE_URI
           value: {{ include "invenio.sqlAlchemyDbUri" . }}
+        {{- with .Values.web.extraEnvVars }}
+        {{-  toYaml . | nindent 8 }}
+        {{- end }}
         - name: INVENIO_SECRET_KEY
           valueFrom:
             secretKeyRef:
@@ -52,13 +57,7 @@ spec:
             secretKeyRef:
               name: invenio-secrets
               key: INVENIO_CSRF_SECRET_SALT
-        {{- if .Values.invenio.sentry.enabled }}
-        - name: INVENIO_SENTRY_DSN
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.invenio.sentry.secret_name }}
-              key: SENTRY_DSN
-        {{- end }}
+        {{- include "invenio.config.sentry" . | nindent 8 }}
         {{- if .Values.invenio.datacite.enabled }}
         - name: INVENIO_DATACITE_USERNAME
           valueFrom:
@@ -125,6 +124,11 @@ spec:
           {{- if .Values.kerberos.enabled }}
           - name: kerberos-credentials-cache
             mountPath: /tmp
+          {{- end }}
+          {{- range $key, $value := .Values.invenio.vocabularies }}
+          - name: vocabularies
+            mountPath: "/opt/invenio/var/instance/app_data/vocabularies/{{ $key }}"
+            subPath: "{{ $key }}"
           {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
@@ -209,13 +213,10 @@ spec:
               "-c",
               "cp -R {{ .Values.web.assets.location }}/. /opt/nginx-invenio-assets/",
           ]
+         {{- if .Values.web.initContainers.resources }}
           resources:
-            limits:
-              cpu: '1'
-              memory: 100Mi
-            requests:
-              cpu: '1'
-              memory: 100Mi
+            {{- toYaml .Values.web.initContainers.resources | nindent 12 }}
+          {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -237,12 +238,14 @@ spec:
             - name: kerberos-credentials-cache
               mountPath: /tmp
         {{- end }}
+      {{- if .Values.invenio.podSecurityContext.enabled }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         seccompProfile:
           type: "RuntimeDefault"
+      {{- end }}
       volumes:
       {{- if .Values.logstash.enabled }}
       - name: config
@@ -274,6 +277,11 @@ spec:
       {{- if .Values.kerberos.enabled }}
       - name: kerberos-credentials-cache
         emptyDir: {}
+      {{- end }}
+      {{- if .Values.invenio.vocabularies }}
+      - name: vocabularies
+        configMap:
+          name: "invenio-vocabularies"
       {{- end }}
       {{- if .Values.web.imagePullSecret }}
       imagePullSecrets:

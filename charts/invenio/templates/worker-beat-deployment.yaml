@@ -3,6 +3,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: worker-beat
+  labels:
+    {{- include "invenio.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
@@ -33,6 +35,11 @@ spec:
         - mountPath: /opt/invenio/var/instance/data
           name: shared-volume
         {{- end }}
+        {{- range $key, $value := .Values.invenio.vocabularies }}
+        - name: vocabularies
+          mountPath: "/opt/invenio/var/instance/app_data/vocabularies/{{ $key }}"
+          subPath: "{{ $key }}"
+        {{- end }}
         envFrom:
         - configMapRef:
             name: invenio-config
@@ -45,6 +52,9 @@ spec:
           value: {{ include "invenio.rabbitmq.uri" . }}
         - name: INVENIO_SQLALCHEMY_DATABASE_URI
           value: {{ include "invenio.sqlAlchemyDbUri" . }}
+        {{- with .Values.workerBeat.extraEnvVars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         - name: INVENIO_SECRET_KEY
           valueFrom:
             secretKeyRef:
@@ -60,13 +70,7 @@ spec:
             secretKeyRef:
               name: invenio-secrets
               key: INVENIO_CSRF_SECRET_SALT
-        {{- if .Values.invenio.sentry.enabled }}
-        - name: INVENIO_SENTRY_DSN
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.invenio.sentry.secret_name }}
-              key: SENTRY_DSN
-        {{- end }}
+        {{- include "invenio.config.sentry" . | nindent 8 }}
         {{- if .Values.invenio.datacite.enabled }}
         - name: INVENIO_DATACITE_USERNAME
           valueFrom:
@@ -105,12 +109,14 @@ spec:
             cpu: '2'
             memory: 500Mi
         {{- end }}
+      {{- if .Values.invenio.podSecurityContext.enabled }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         seccompProfile:
           type: "RuntimeDefault"
+      {{- end }}
       volumes:
       - name: var-run-celery
         emptyDir:
@@ -119,6 +125,11 @@ spec:
       - name: shared-volume
         persistentVolumeClaim:
           claimName: {{ .Values.persistence.name }}
+      {{- end }}
+      {{- if .Values.invenio.vocabularies }}
+      - name: vocabularies
+        configMap:
+          name: "invenio-vocabularies"
       {{- end }}
       {{- if .Values.worker.imagePullSecret }}
       imagePullSecrets:
