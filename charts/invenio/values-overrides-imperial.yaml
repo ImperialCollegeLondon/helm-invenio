@@ -8,7 +8,7 @@ invenio:
     #security_login_salt: "REPLACE-ME"
     #csrf_secret_salt: "REPLACE-ME"
     create_fixtures: true
-    #extra_config:
+    #extraConfig:
     #  ICL_OAUTH_CLIENT_ID: "REPLACE-ME"
     #  ICL_OAUTH_CLIENT_SECRET: "REPLACE-ME"
     #  ICL_OAUTH_WELL_KNOWN_URL: "REPLACE-ME"

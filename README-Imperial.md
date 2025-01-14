@@ -100,9 +100,9 @@ helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set invenio.secret_key=<your_key> \
   --set invenio.security_login_salt=<your_login_salt> \
   --set invenio.csrf_secret_salt=<another_secret_salt> \
-  --set invenio.extra_config.ICL_OAUTH_CLIENT_ID=<id_provided> \
-  --set invenio.extra_config.ICL_OAUTH_CLIENT_SECRET=<key_provided> \
-  --set invenio.extra_config.ICL_OAUTH_WELL_KNOWN_URL=<url_provided> \
+  --set invenio.extraConfig.ICL_OAUTH_CLIENT_ID=<id_provided> \
+  --set invenio.extraConfig.ICL_OAUTH_CLIENT_SECRET=<key_provided> \
+  --set invenio.extraConfig.ICL_OAUTH_WELL_KNOWN_URL=<url_provided> \
   --set rabbitmq.auth.password=<your_mq_password> \
   --set postgresql.auth.password=<your_pg_password>
 ```
@@ -114,9 +114,9 @@ helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set invenio.secret_key=<your_key> \
   --set invenio.security_login_salt=<your_login_salt> \
   --set invenio.csrf_secret_salt=<another_secret_salt> \
-  --set invenio.extra_config.ICL_OAUTH_CLIENT_ID=<id_provided> \
-  --set invenio.extra_config.ICL_OAUTH_CLIENT_SECRET=<key_provided> \
-  --set invenio.extra_config.ICL_OAUTH_WELL_KNOWN_URL=<url_provided> \
+  --set invenio.extraConfig.ICL_OAUTH_CLIENT_ID=<id_provided> \
+  --set invenio.extraConfig.ICL_OAUTH_CLIENT_SECRET=<key_provided> \
+  --set invenio.extraConfig.ICL_OAUTH_WELL_KNOWN_URL=<url_provided> \
   --set rabbitmq.auth.password=<your_mq_password> \
   --set postgresql.auth.password=<your_pg_password>
 ```
@@ -147,9 +147,22 @@ helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set invenio.secret_key=$ICL_INVENIO_SECRET_KEY \
   --set invenio.security_login_salt=$ICL_INVENIO_SECURITY_LOGIN_SALT \
   --set invenio.csrf_secret_salt=$ICL_INVENIO_CSRF_SECRET_SALT \
-  --set invenio.extra_config.ICL_OAUTH_CLIENT_ID=$ICL_INVENIO_OAUTH_CLIENT_ID \
-  --set invenio.extra_config.ICL_OAUTH_CLIENT_SECRET=$ICL_INVENIO_OAUTH_CLIENT_SECRET \
-  --set invenio.extra_config.ICL_OAUTH_WELL_KNOWN_URL=$ICL_INVENIO_OAUTH_WELL_KNOWN_URL \
+  --set invenio.extraConfig.ICL_OAUTH_CLIENT_ID=$ICL_INVENIO_OAUTH_CLIENT_ID \
+  --set invenio.extraConfig.ICL_OAUTH_CLIENT_SECRET=$ICL_INVENIO_OAUTH_CLIENT_SECRET \
+  --set invenio.extraConfig.ICL_OAUTH_WELL_KNOWN_URL=$ICL_INVENIO_OAUTH_WELL_KNOWN_URL \
+  --set rabbitmq.auth.password=$ICL_INVENIO_RABBITMQ_PW \
+  --set postgresql.auth.password=$ICL_INVENIO_POSTGRES_PW
+```
+
+Or the upgrade command:
+```shell
+helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . \
+  --set invenio.secret_key=$ICL_INVENIO_SECRET_KEY \
+  --set invenio.security_login_salt=$ICL_INVENIO_SECURITY_LOGIN_SALT \
+  --set invenio.csrf_secret_salt=$ICL_INVENIO_CSRF_SECRET_SALT \
+  --set invenio.extraConfig.ICL_OAUTH_CLIENT_ID=$ICL_INVENIO_OAUTH_CLIENT_ID \
+  --set invenio.extraConfig.ICL_OAUTH_CLIENT_SECRET=$ICL_INVENIO_OAUTH_CLIENT_SECRET \
+  --set invenio.extraConfig.ICL_OAUTH_WELL_KNOWN_URL=$ICL_INVENIO_OAUTH_WELL_KNOWN_URL \
   --set rabbitmq.auth.password=$ICL_INVENIO_RABBITMQ_PW \
   --set postgresql.auth.password=$ICL_INVENIO_POSTGRES_PW
 ```
@@ -160,9 +173,7 @@ helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
 
     watch ...
 
-create users
 
-run data script
 
 ## Observe the web logs
 
@@ -172,7 +183,7 @@ To watch the logs from e.g. all web containers (running the Invenio app):
 kubectl logs -f -l app=web -n invenio --max-log-requests=6
 ```
 
-# Teardown
+## Teardown
 
 If you want to uninstall you can run:
 ```bash
@@ -204,9 +215,80 @@ You can delete all pvcs with this command:
 kubectl delete pvc -n invenio --all
 ```
 
-# Scale
+## Scale
 
 To scale web or workers, you can run:
 ```bash
 kubectl scale deployment --replicas=5 web -n invenio
+```
+
+# Administration - Run commands in pods
+
+Observe which pods we have running
+
+    kubectl get pods -n invenio
+
+Choose a `web` pod (running the application) and execute a shell
+
+```bash
+kubectl -n invenio exec --stdin --tty web-57c8476cf8-2kvvt -- /bin/bash
+```
+
+The `invenio` CLI command is available in the `web` pods, so from the default entrypoint you can manage the application.
+See []() for more details.
+
+```
+[invenio@web-57c8476cf8-2kvvt src]$ invenio --help
+Usage: invenio [OPTIONS] COMMAND [ARGS]...
+
+  Command Line Interface for Invenio.
+
+Options:
+  -e, --env-file FILE   Load environment variables from this file. python-
+                        dotenv must be installed.
+  -A, --app IMPORT      The Flask application or factory function to load, in
+                        the form 'module:name'. Module can be a dotted import
+                        or file path. Name is not required if it is 'app',
+                        'application', 'create_app', or 'make_app', and can be
+                        'name(args)' to pass arguments.
+  --debug / --no-debug  Set debug mode.
+  --version             Show the Flask version.
+  --help                Show this message and exit.
+
+Commands:
+  access          Account commands.
+  alembic         Perform database migrations.
+  collect         Collect static files.
+  communities     Invenio communities commands.
+  db              Database commands.
+  domains         Domain commands.
+  files           File management commands.
+  identity-cache  Invenio identity cache commands.
+  index           Manage search indices.
+  instance        Instance commands.
+  limiter         Flask-Limiter maintenance & utility commmands
+  pid             PID-Store management commands.
+  queues          Manage events queue.
+  rdm             Invenio app rdm commands.
+  rdm-records     InvenioRDM records commands.
+  roles           Role commands.
+  routes          Show the routes for the app.
+  run             Run a development server.
+  shell           Runs a shell in the app context.
+  stats           Statistics commands.
+  tokens          OAuth2 server token commands.
+  users           User commands.
+  vocabularies    Vocabularies command.
+  webpack         Webpack commands
+```
+
+## Dev - run data import script
+
+This is just the demo data we have included in our instance repo. Documentation can be found at
+https://github.com/ImperialCollegeLondon/fair-data-repository/tree/develop/test_data
+
+```bash
+cd test_data
+python download_test_data.py
+python create_test_data_records.py
 ```
