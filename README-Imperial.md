@@ -169,11 +169,24 @@ helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
 
 ## Checking on installation progress
 
-    kubectl get pods --namespace invenio
+```
+kubectl get pods --namespace invenio
+```
 
-    watch ...
+Check the `STATUS` and `READY` columns - if they are stuck in a `Pending` state your cluster may not have enough resources.
+To track the installation in real-time, it's helpful to use the `watch` command:
 
+```
+$ watch -n 10 kubectl get pods -n invenio
 
+Every 10.0s: kubectl get pods -n invenio
+(ctrl-c to exit)
+```
+
+Note that the _bitnami_ charts for OpenSearch and Redis are using their default configs, which includes replicas. These could be pared down at
+the expense of some redundancy.
+
+The `install-init` container is tempoary, i.e. it runs its job and then shuts down.
 
 ## Observe the web logs
 
