@@ -71,6 +71,7 @@ ingress:
   annotations:
     kubernetes.io/ingress.class: "webapprouting.kubernetes.azure.com"
     cert-manager.io/cluster-issuer: "letsencrypt-production"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50G"
 
 clusterissuer:
   email: "sysadmin+icl@cottagelabs.com"
