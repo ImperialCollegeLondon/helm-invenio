@@ -8,37 +8,72 @@ increase in the initial delay of the startup probes for the worker and worker-be
 
 # Setup
 
-Tools required are `helm`, the Azure CLI tool [az](https://go.microsoft.com/fwlink/?linkid=872496) and [Kubectl](https://go.microsoft.com/fwlink/?linkid=2233742).
+Tools required are `helm`, the Azure CLI tool [az](https://go.microsoft.com/fwlink/?linkid=872496)
+and [Kubectl](https://go.microsoft.com/fwlink/?linkid=2233742).
 
 ## Connect to the cluster
-Hint: Commands are pre-populated when you view the instructions in the `connect` link in [Azure Portal](https://portal.azure.com)
+
+Hint: Commands are pre-populated when you view the instructions in the `connect` link
+in [Azure Portal](https://portal.azure.com)
 
 ```bash
 az login
 az account set --subscription <subscription_uuid>
-az aks get-credentials --resource-group invenio-dev --name invenio-dev --overwrite-existing
+az aks get-credentials --resource-group <resource_group> --name invenio-dev --overwrite-existing
 ```
 
-Your account will need role `Azure Kubernetes Service RBAC Cluster Admin` for the above to suceed.
+Your account will need role `Azure Kubernetes Service RBAC Cluster Admin` for the above to succeed.
 
-In the command above, `aks` refers to the Azure Kubernetes Service, it's editing your local `.kube/config` file to add the context for cluster access via `kubectl`.
+In the command above, `aks` refers to the Azure Kubernetes Service, it's editing your local `.kube/config` file to add
+the context for cluster access via `kubectl`.
+
+The choice of `resource group` seems to have implications for the storage account and other resources because
+resource groups have geographical locations. The current resource groups location is `uksouth` also available
+is `ukwest`. To list resource groups run:
+
+```bash
+az group list
+```
 
 ## Enable Azure features
 
 ### Storage
+
 In order to have a ReadWriteMany shared volume, a StorageClass has been
-[created](https://learn.microsoft.com/en-us/azure/aks/azure-csi-files-storage-provision#create-a-storage-class) at `templates/azure-file-sc.yaml`.
+[created](https://learn.microsoft.com/en-us/azure/aks/azure-csi-files-storage-provision#create-a-storage-class) at
+`templates/azure-file-sc.yaml`.
 
 To use this, the Storage feature needs to be enabled on the subscription, via:
+
 ```bash
 az provider register --namespace Microsoft.Storage
 ```
 
-TODO: explain service levels of storage persistence & their configuration SKUs
+[Azure Storage redundancy SKUs (Stock Keeping Unit)](https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy)
+offer different levels of availability and backup strategies: 
+* Standard_LRS: Standard locally redundant storage (LRS)
+* Standard_GRS: Standard geo-redundant storage (GRS)
+* Standard_ZRS: Standard zone redundant storage (ZRS)
+* Standard_RAGRS: Standard read-access geo-redundant storage (RA-GRS)
+* Premium_LRS: Premium locally redundant storage (LRS)
+* Premium_ZRS: Premium zone redundant storage (ZRS)
+
+The storage class unit `Standard_LRS` is used in the `azure-file-sc.yaml` file,
+but this can be changed to suit your needs.
+
+Storage accounts are linked to resource groups, to create a new storage account see 
+[this guide](https://learn.microsoft.com/en-gb/azure/storage/common/storage-account-create).
+To list storage accounts run:
+
+```bash
+az storage account list
+```
 
 ### Approuting
-The application routing add-on must be [enabled](https://learn.microsoft.com/en-us/azure/aks/app-routing#enable-on-an-existing-cluster) 
-to correspond with the `ingressClassName` for Azure from that documentation, i.e. `class: "webapprouting.kubernetes.azure.com"`
+
+The application routing add-on must be [enabled](https://learn.microsoft.com/en-us/azure/aks/app-routing#enable-on-an-existing-cluster)
+to correspond with the `ingressClassName` for Azure from that documentation, i.e.
+`class: "webapprouting.kubernetes.azure.com"`
 
 ```bash
 az aks approuting enable --resource-group invenio-dev --name invenio-dev
@@ -46,13 +81,15 @@ az aks approuting enable --resource-group invenio-dev --name invenio-dev
 
 ### Azure DNS
 
-**FIXME:** for the timebeing, we are _manually via GUI_ annotating the Public IP created in the above step with a DNS name, which gives us an Azure FQDN, e.g. `icl-invenio-dev.uksouth.cloudapp.azure.com`
+**FIXME:** for the time being, we are _manually via GUI_ annotating the Public IP created in the above step with a DNS
+name, which gives us an Azure FQDN, e.g. `icl-invenio-dev.uksouth.cloudapp.azure.com`
 The same `hostname` must be used in `values-overrides-imperial.yml` to access the application.
 
 ## Install CertManager on the cluster
 
-CertManager is used to automatically handle SSL certificates outwith the service itself. It also gives us a simple way to verify for LetsEncrypt certs.
-For the full process followed here, see the documentation at https://cert-manager.io/docs/tutorials/getting-started-aks-letsencrypt/
+CertManager is used to automatically handle SSL certificates outwith the service itself. It also gives us a simple way
+to verify for LetsEncrypt certs. For the full process followed here, see the documentation
+at https://cert-manager.io/docs/tutorials/getting-started-aks-letsencrypt/
 
 The necessary steps on a fresh cluster are:
 
@@ -79,11 +116,13 @@ kubectl delete namespace cert-manager
 ```
 
 # InvenioRDM Deployment commands
+
 To install, cd into `charts/invenio`, first run
 
 ```bash
 helm dependency build
 ```
+
 To get the charts for `opensearch`, `postgresql`, `rabbitmq`, and `redis`.
 
 Note that you can add the argument `--debug` to all `helm` commands for a bit more verbosity.
@@ -91,9 +130,10 @@ Note that you can add the argument `--debug` to all `helm` commands for a bit mo
 If the namespace invenio doesn't exist you need to add the argument `--create-namespace`.
 You can do a dry run of a `helm` command by adding, `--dry-run`.
 
-Some of the secret values in `values-overrides-imperial.yaml` have been obscured with the text `REPLACE-ME` and not checked into the repo.
-These need to be supplied at runtime (so that they can be templated via GitHub Secrets for CI). Unfortunately this makes the following setup
-commands rather lengthy. Feel free to use environment variables to ease the process (see below).
+Some of the secret values in `values-overrides-imperial.yaml` have been obscured with the text `REPLACE-ME` and not
+checked into the repo.
+These need to be supplied at runtime (so that they can be templated via GitHub Secrets for CI). Unfortunately this makes
+the following commands rather lengthy. Feel free to use environment variables to ease the process (see below).
 
 ```bash
 helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . [--create-namespace] \
@@ -106,9 +146,11 @@ helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set rabbitmq.auth.password=<your_mq_password> \
   --set postgresql.auth.password=<your_pg_password>
 ```
+
 `fair-data-repository-dev` is the deployment name in `helm`, which you'll use for subsequent management commands.
 
 If you want to apply a change of configuration you can upgrade like so:
+
 ```bash
 helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . \
   --set invenio.secret_key=<your_key> \
@@ -125,7 +167,7 @@ You **MUST** provide the same secrets as before if you wish for the existing dat
 
 ## Secrets generation and env templating
 
-Useful for generating these: `uuidgen`, `pwgen -N 1` for UUIDs and a single simple password, respectively. 
+Useful for generating these: `uuidgen`, `pwgen -N 1` for UUIDs and a single simple password, respectively.
 
 ```shell
 # A secret local shell script to create our app secrets
@@ -155,6 +197,7 @@ helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
 ```
 
 Or the upgrade command:
+
 ```shell
 helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . \
   --set invenio.secret_key=$ICL_INVENIO_SECRET_KEY \
@@ -169,24 +212,26 @@ helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
 
 ## Checking on installation progress
 
-```
+```bash
 kubectl get pods --namespace invenio
 ```
 
-Check the `STATUS` and `READY` columns - if they are stuck in a `Pending` state your cluster may not have enough resources.
+Check the `STATUS` and `READY` columns - if they are stuck in a `Pending` state your cluster may not have enough
+resources.
 To track the installation in real-time, it's helpful to use the `watch` command:
 
-```
+```bash
 $ watch -n 10 kubectl get pods -n invenio
 
 Every 10.0s: kubectl get pods -n invenio
 (ctrl-c to exit)
 ```
 
-Note that the _bitnami_ charts for OpenSearch and Redis are using their default configs, which includes replicas. These could be pared down at
+Note that the _bitnami_ charts for OpenSearch and Redis are using their default configs, which includes replicas. These
+could be pared down at
 the expense of some redundancy.
 
-The `install-init` container is tempoary, i.e. it runs its job and then shuts down.
+The `install-init` container is temporary, i.e. it runs its job and then shuts down.
 
 ## Observe the web logs
 
@@ -199,12 +244,15 @@ kubectl logs -f -l app=web -n invenio --max-log-requests=6
 ## Teardown
 
 If you want to uninstall you can run:
+
 ```bash
 helm uninstall fair-data-repository-dev -n invenio
 ```
+
 Verify they're all destroyed with `kubectl get pods -n invenio`
 
-If you're redeploying and the `install-init` pod keeps reappearing, that means it's being recreated by the job. You can remove that explicitly via:
+If you're redeploying and the `install-init` pod keeps reappearing, that means it's being recreated by the job. You can
+remove that explicitly via:
 
 ```bash
 kubectl delete job install-init -n invenio
@@ -217,13 +265,14 @@ pvcs run
 kubectl get pv -n invenio
 ```
 
-and 
+and
 
 ```bash
 kubectl get pvc -n invenio
 ```
 
 You can delete all pvcs with this command:
+
 ```bash
 kubectl delete pvc -n invenio --all
 ```
@@ -231,6 +280,7 @@ kubectl delete pvc -n invenio --all
 ## Scale
 
 To scale web or workers, you can run:
+
 ```bash
 kubectl scale deployment --replicas=5 web -n invenio
 ```
@@ -250,7 +300,7 @@ kubectl -n invenio exec --stdin --tty web-57c8476cf8-2kvvt -- /bin/bash
 The `invenio` CLI command is available in the `web` pods, so from the default entrypoint you can manage the application.
 See []() for more details.
 
-```
+```bash
 [invenio@web-57c8476cf8-2kvvt src]$ invenio --help
 Usage: invenio [OPTIONS] COMMAND [ARGS]...
 
