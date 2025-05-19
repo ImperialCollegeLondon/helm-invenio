@@ -69,6 +69,14 @@ To list storage accounts run:
 az storage account list
 ```
 
+The various pods will access a shared volume via the `azure-file-sc` storage class called `shared volume` (see 
+persistence.name in values.yaml) in the `invenio` namespace. To view information about the persistent volume
+claim (PVC) run:
+
+```bash
+kubectl describe pvc -n invenio shared-volume
+```
+
 ### Approuting
 
 The application routing add-on must be [enabled](https://learn.microsoft.com/en-us/azure/aks/app-routing#enable-on-an-existing-cluster)
@@ -344,6 +352,24 @@ Commands:
   vocabularies    Vocabularies command.
   webpack         Webpack commands
 ```
+
+## Search indices
+
+InvenioRDM uses the [Bitnami OpenSearch charts](https://artifacthub.io/packages/helm/bitnami/opensearch).
+The indices are created during the init job. They are not stored in the shared volume, but in separate
+persistent volumes. There are persistent volumes for two master nodes and two data nodes, each having 8gb.
+
+In order to rebuild indices you can run:
+
+```bash
+kubectl -n invenio exec <name of a web or worker pod> -- invenio rdm-records rebuild-index
+```
+
+This is a short-hand command for working with the indices. You can also run the `invenio index` commands for
+manual index management.
+
+See more on [how to back up search indices](https://inveniordm.docs.cern.ch/develop/howtos/backup_search_indices/).
+
 
 ## Dev - run data import script
 
