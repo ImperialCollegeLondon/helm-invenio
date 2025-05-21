@@ -5,23 +5,28 @@
 The deployment takes about 2-3 minutes. We've added an init container to the
 install-init job in order to wait for OpenSearch to become available. This in
 turn has required an increase in the initial delay of the startup probes for
-the worker and worker-beat pods. The standard deployment has 24 pods.
+the worker and worker-beat pods. The standard deployment has 24 pods in the 
+Invenio namespace.
 
 
 # Components
 
-| Component      | Description                        | Pods/containers                                       |
-|----------------|------------------------------------|-------------------------------------------------------| 
-| InvenioRDM     | Python/Flask app for research data | 6 pods; each pod has 2 containers: web and nginx      |
-| Init job       | One off init job                   | 1 pod                                                 |
-| PostgreSQL     | Main relational database           | * should be 1 pod but will be external                |
-| Elasticsearch  | Search indexing backend            | 8 pods; 2 master, 2 data, 2 ingest and 2 coordinating |
-| Redis          | Cache and Celery broker            | 4 pods; 1 master and 3 replicas                       |                       
-| Celery workers | Background task execution          | 3 pods, 2 worker and 1 beat                           |
-| RabbitMQ       | Message queue for Celery tasks     | 1 pod                                                 |
-| Kubernetes     | Orchestration and scaling platform |
-| Helm           | Deployment and configuration tool  |
-| Nginx          | HTTP server and reverse proxy      | * this is part of the InvenioRDM deployment           |
+| Component      | Description                         | Pods/containers                                       |
+|----------------|-------------------------------------|-------------------------------------------------------| 
+| InvenioRDM     | Python/Flask app for research data  | 6 pods; each pod has 2 containers: web and nginx      |
+| Init job       | One off init job                    | 1 pod                                                 |
+| PostgreSQL     | Main relational database            | * should be 1 pod but will be external                |
+| Opensearch     | Search indexing backend             | 8 pods; 2 master, 2 data, 2 ingest and 2 coordinating |
+| Redis          | Cache and Celery broker             | 4 pods; 1 master and 3 replicas                       |                       
+| Celery workers | Background task execution           | 3 pods, 2 worker and 1 beat                           |
+| RabbitMQ       | Message queue for Celery tasks      | 1 pod                                                 |
+| Kubernetes     | Orchestration and scaling platform  |
+| Helm           | Deployment and configuration tool   |
+| Nginx          | HTTP server and reverse proxy       | * this is part of the InvenioRDM deployment           |
+| CertManager    | SSL certificate management          | (in a different namespace)                            |
+
+The InvenioRDM application is deployed using [deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) whereas the services,
+Opensearch, Redis, RabbitMQ and PostgreSQL are deployed using [StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/).
 
 # Setup
 
@@ -278,7 +283,9 @@ default configs, which includes replicas. These could be pared down at
 the expense of some redundancy.
 
 The `install-init` container is temporary, i.e. it runs its job and then 
-shuts down.
+shuts down. If you redeploy over existing data, the `install-init` job will
+fail because the database already exists. This is expected, and you can
+ignore the failure.
 
 ## Inspect a pod
 
@@ -439,3 +446,19 @@ cd test_data
 python download_test_data.py
 python create_test_data_records.py
 ```
+
+## Disaster recovery
+
+### Database
+The database is externally managed and backing it up is out of scope.
+In the event of loss of the database, a snapshot of the database can be 
+restored and operations resume with that last state.
+
+### File storage
+The file storage is managed by the Azure File Share and is backed up by 
+Azure. In the event of loss this will be restored by Azure and operations 
+resume with that last state.
+
+### Search indices
+The search indices are in persistent volumes and need to be backed up 
+manually. There is a good guide on how to do this at the [InvenioRDM docs](https://inveniordm.docs.cern.ch/develop/howtos/backup_search_indices/).
