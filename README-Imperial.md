@@ -2,9 +2,26 @@
 
 **Currently for DEV / CI - using letsencrypt certificates on nginx ingress**
 
-The deployment takes about 2-3 minutes. We've added an init container to the install-init
-job in order to wait for OpenSearch to become available. This in turn has required an
-increase in the initial delay of the startup probes for the worker and worker-beat pods.
+The deployment takes about 2-3 minutes. We've added an init container to the
+install-init job in order to wait for OpenSearch to become available. This in
+turn has required an increase in the initial delay of the startup probes for
+the worker and worker-beat pods. The standard deployment has 24 pods.
+
+
+# Components
+
+| Component      | Description                        | Pods/containers                                       |
+|----------------|------------------------------------|-------------------------------------------------------| 
+| InvenioRDM     | Python/Flask app for research data | 6 pods; each pod has 2 containers: web and nginx      |
+| Init job       | One off init job                   | 1 pod                                                 |
+| PostgreSQL     | Main relational database           | * should be 1 pod but will be external                |
+| Elasticsearch  | Search indexing backend            | 8 pods; 2 master, 2 data, 2 ingest and 2 coordinating |
+| Redis          | Cache and Celery broker            | 4 pods; 1 master and 3 replicas                       |                       
+| Celery workers | Background task execution          | 3 pods, 2 worker and 1 beat                           |
+| RabbitMQ       | Message queue for Celery tasks     | 1 pod                                                 |
+| Kubernetes     | Orchestration and scaling platform |
+| Helm           | Deployment and configuration tool  |
+| Nginx          | HTTP server and reverse proxy      | * this is part of the InvenioRDM deployment           |
 
 # Setup
 
@@ -13,8 +30,8 @@ and [Kubectl](https://go.microsoft.com/fwlink/?linkid=2233742).
 
 ## Connect to the cluster
 
-Hint: Commands are pre-populated when you view the instructions in the `connect` link
-in [Azure Portal](https://portal.azure.com)
+Hint: Commands are pre-populated when you view the instructions in the `connect`
+link in [Azure Portal](https://portal.azure.com)
 
 ```bash
 az login
@@ -22,14 +39,16 @@ az account set --subscription <subscription_uuid>
 az aks get-credentials --resource-group <resource_group> --name invenio-dev --overwrite-existing
 ```
 
-Your account will need role `Azure Kubernetes Service RBAC Cluster Admin` for the above to succeed.
+Your account will need role `Azure Kubernetes Service RBAC Cluster Admin` for
+the above to succeed.
 
-In the command above, `aks` refers to the Azure Kubernetes Service, it's editing your local `.kube/config` file to add
-the context for cluster access via `kubectl`.
+In the command above, `aks` refers to the Azure Kubernetes Service, it's editing
+your local `.kube/config` file to add the context for cluster access via `kubectl`.
 
-The choice of `resource group` seems to have implications for the storage account and other resources because
-resource groups have geographical locations. The current resource groups location is `uksouth` also available
-is `ukwest`. To list resource groups run:
+The choice of `resource group` seems to have implications for the storage account
+and other resources because resource groups have geographical locations. The current 
+resource groups location is `uksouth` also available is `ukwest`. To list resource
+groups run:
 
 ```bash
 az group list
@@ -61,17 +80,17 @@ offer different levels of availability and backup strategies:
 The storage class unit `Standard_LRS` is used in the `azure-file-sc.yaml` file,
 but this can be changed to suit your needs.
 
-Storage accounts are linked to resource groups, to create a new storage account see 
-[this guide](https://learn.microsoft.com/en-gb/azure/storage/common/storage-account-create).
+Storage accounts are linked to resource groups, to create a new storage account
+see [this guide](https://learn.microsoft.com/en-gb/azure/storage/common/storage-account-create).
 To list storage accounts run:
 
 ```bash
 az storage account list
 ```
 
-The various pods will access a shared volume via the `azure-file-sc` storage class called `shared volume` (see 
-persistence.name in values.yaml) in the `invenio` namespace. To view information about the persistent volume
-claim (PVC) run:
+The various pods will access a shared volume via the `azure-file-sc` storage class
+called `shared volume` (see persistence.name in values.yaml) in the `invenio` 
+namespace. To view information about the persistent volume claim (PVC) run:
 
 ```bash
 kubectl describe pvc -n invenio shared-volume
@@ -89,15 +108,17 @@ az aks approuting enable --resource-group invenio-dev --name invenio-dev
 
 ### Azure DNS
 
-**FIXME:** for the time being, we are _manually via GUI_ annotating the Public IP created in the above step with a DNS
-name, which gives us an Azure FQDN, e.g. `icl-invenio-dev.uksouth.cloudapp.azure.com`
-The same `hostname` must be used in `values-overrides-imperial.yml` to access the application.
+**FIXME:** for the time being, we are _manually via GUI_ annotating the Public IP 
+created in the above step with a DNS name, which gives us an Azure FQDN, e.g.
+`icl-invenio-dev.uksouth.cloudapp.azure.com` The same `hostname` must be used in 
+`values-overrides-imperial.yml` to access the application.
 
 ## Install CertManager on the cluster
 
-CertManager is used to automatically handle SSL certificates outwith the service itself. It also gives us a simple way
-to verify for LetsEncrypt certs. For the full process followed here, see the documentation
-at https://cert-manager.io/docs/tutorials/getting-started-aks-letsencrypt/
+CertManager is used to automatically handle SSL certificates outwith the service 
+itself. It also gives us a simple way to verify for LetsEncrypt certs. For the 
+full process followed here, see the documentation at 
+https://cert-manager.io/docs/tutorials/getting-started-aks-letsencrypt/
 
 The necessary steps on a fresh cluster are:
 
@@ -114,7 +135,8 @@ helm install \
   --set crds.enabled=true
 ```
 
-This installation occurs on the same cluster but in a different namespace to the InvenioRDM application.
+This installation occurs on the same cluster but in a different namespace to the 
+InvenioRDM application.
 
 ### [Teardown Cert-Manager](https://cert-manager.io/v1.2-docs/installation/uninstall/kubernetes/)
 
@@ -125,6 +147,8 @@ kubectl delete namespace cert-manager
 
 # InvenioRDM Deployment commands
 
+With Azure features enabled, you can now deploy the InvenioRDM application.
+
 To install, cd into `charts/invenio`, first run
 
 ```bash
@@ -133,15 +157,24 @@ helm dependency build
 
 To get the charts for `opensearch`, `postgresql`, `rabbitmq`, and `redis`.
 
-Note that you can add the argument `--debug` to all `helm` commands for a bit more verbosity.
+Note that you can add the argument `--debug` to all `helm` commands for a 
+bit more verbosity.
 
-If the namespace invenio doesn't exist you need to add the argument `--create-namespace`.
-You can do a dry run of a `helm` command by adding, `--dry-run`.
+If the namespace invenio doesn't exist you need to add the argument 
+`--create-namespace`. You can do a dry run of a `helm` command by adding,
+`--dry-run`.
 
-Some of the secret values in `values-overrides-imperial.yaml` have been obscured with the text `REPLACE-ME` and not
-checked into the repo.
-These need to be supplied at runtime (so that they can be templated via GitHub Secrets for CI). Unfortunately this makes
-the following commands rather lengthy. Feel free to use environment variables to ease the process (see below).
+Some of the secret values in `values-overrides-imperial.yaml` have been 
+obscured with the text `REPLACE-ME` and not checked into the repo.
+
+These need to be supplied at runtime (so that they can be templated via 
+GitHub Secrets for CI). Unfortunately this makes the following commands 
+rather lengthy. Feel free to use environment variables to ease the process
+(see below).
+
+Note: These commands are for demonstration purposes only, and do not reflect the
+number of arguments that should be passed in. See the Github action workflows
+in the [repository](https://github.com/ImperialCollegeLondon/fair-data-repository/tree/develop/.github/workflows).
 
 ```bash
 helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-dev . [--create-namespace] \
@@ -155,7 +188,8 @@ helm install -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set postgresql.auth.password=<your_pg_password>
 ```
 
-`fair-data-repository-dev` is the deployment name in `helm`, which you'll use for subsequent management commands.
+`fair-data-repository-dev` is the deployment name in `helm`, which you'll use
+for subsequent management commands.
 
 If you want to apply a change of configuration you can upgrade like so:
 
@@ -171,11 +205,13 @@ helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
   --set postgresql.auth.password=<your_pg_password>
 ```
 
-You **MUST** provide the same secrets as before if you wish for the existing data in the instance to be accessible.
+You **MUST** provide the same secrets as before if you wish for the existing
+data in the instance to be accessible.
 
 ## Secrets generation and env templating
 
-Useful for generating these: `uuidgen`, `pwgen -N 1` for UUIDs and a single simple password, respectively.
+Useful for generating these: `uuidgen`, `pwgen -N 1` for UUIDs and a 
+single simple password, respectively.
 
 ```shell
 # A secret local shell script to create our app secrets
@@ -224,9 +260,11 @@ helm upgrade -f values-overrides-imperial.yaml -n invenio fair-data-repository-d
 kubectl get pods --namespace invenio
 ```
 
-Check the `STATUS` and `READY` columns - if they are stuck in a `Pending` state your cluster may not have enough
-resources.
-To track the installation in real-time, it's helpful to use the `watch` command:
+Check the `STATUS` and `READY` columns - if they are stuck in a `Pending` 
+state your cluster may not have enough resources.
+
+To track the installation in real-time, it's helpful to use the `watch` 
+command:
 
 ```bash
 $ watch -n 10 kubectl get pods -n invenio
@@ -235,11 +273,25 @@ Every 10.0s: kubectl get pods -n invenio
 (ctrl-c to exit)
 ```
 
-Note that the _bitnami_ charts for OpenSearch and Redis are using their default configs, which includes replicas. These
-could be pared down at
+Note that the _bitnami_ charts for OpenSearch and Redis are using their 
+default configs, which includes replicas. These could be pared down at 
 the expense of some redundancy.
 
-The `install-init` container is temporary, i.e. it runs its job and then shuts down.
+The `install-init` container is temporary, i.e. it runs its job and then 
+shuts down.
+
+## Inspect a pod
+
+To inspect a pod, you can run:
+
+```bash
+kubectl describe -n invenio web-57c8476cf8-2kvvt 
+```
+
+This command is compatible with `docker inspect` and will tell you the 
+status of the pod. This is especially useful if something has gone wrong
+with the pod, and it is stuck in a `CrashLoopBackOff` cycle. `CrashLoopBackOff`
+means that the pod is crashing and restarting.
 
 ## Observe the web logs
 
@@ -259,15 +311,16 @@ helm uninstall fair-data-repository-dev -n invenio
 
 Verify they're all destroyed with `kubectl get pods -n invenio`
 
-If you're redeploying and the `install-init` pod keeps reappearing, that means it's being recreated by the job. You can
-remove that explicitly via:
+If you're redeploying and the `install-init` pod keeps reappearing, that 
+means it's being recreated by the job. You can remove that explicitly 
+via:
 
 ```bash
 kubectl delete job install-init -n invenio
 ```
 
-Uninstalling a helm installation does not remove the 11 persistent volumes (PVs) and claims (PVCs) created. To see the
-pvcs run
+Uninstalling a helm installation does not remove the 11 persistent 
+volumes (PVs) and claims (PVCs) created. To see the pvcs run:
 
 ```bash
 kubectl get pv -n invenio
@@ -297,7 +350,9 @@ kubectl scale deployment --replicas=5 web -n invenio
 
 Observe which pods we have running
 
-    kubectl get pods -n invenio
+```bash
+kubectl get pods -n invenio
+```
 
 Choose a `web` pod (running the application) and execute a shell
 
@@ -305,8 +360,8 @@ Choose a `web` pod (running the application) and execute a shell
 kubectl -n invenio exec --stdin --tty web-57c8476cf8-2kvvt -- /bin/bash
 ```
 
-The `invenio` CLI command is available in the `web` pods, so from the default entrypoint you can manage the application.
-See []() for more details.
+The `invenio` CLI command is available in the `web` pods, so from
+the default entrypoint you can manage the application.
 
 ```bash
 [invenio@web-57c8476cf8-2kvvt src]$ invenio --help
@@ -356,8 +411,10 @@ Commands:
 ## Search indices
 
 InvenioRDM uses the [Bitnami OpenSearch charts](https://artifacthub.io/packages/helm/bitnami/opensearch).
-The indices are created during the init job. They are not stored in the shared volume, but in separate
-persistent volumes. There are persistent volumes for two master nodes and two data nodes, each having 8gb.
+The indices are created during the init job. They are not stored in 
+the shared volume, but in separate persistent volumes. There are 
+persistent volumes for two master nodes and two data nodes, each 
+having 8gb.
 
 In order to rebuild indices you can run:
 
@@ -365,15 +422,16 @@ In order to rebuild indices you can run:
 kubectl -n invenio exec <name of a web or worker pod> -- invenio rdm-records rebuild-index
 ```
 
-This is a short-hand command for working with the indices. You can also run the `invenio index` commands for
-manual index management.
+This is a short-hand command for rebuilding the indices. You can 
+also run the `invenio index` commands for manual index management.
 
-See more on [how to back up search indices](https://inveniordm.docs.cern.ch/develop/howtos/backup_search_indices/).
+See more on [InvenioRDM docs on how to back up the search indices](https://inveniordm.docs.cern.ch/develop/howtos/backup_search_indices/).
 
 
 ## Dev - run data import script
 
-This is just the demo data we have included in our instance repo. Documentation can be found at
+This is just the demo data we have included in our instance repo. 
+Documentation can be found at
 https://github.com/ImperialCollegeLondon/fair-data-repository/tree/develop/test_data
 
 ```bash
