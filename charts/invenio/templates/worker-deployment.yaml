@@ -98,6 +98,7 @@ spec:
                 - "celery -A {{ .Values.worker.app }} inspect ping -d celery@$(hostname)"
             initialDelaySeconds: {{ .Values.worker.livenessProbe.initialDelaySeconds }}
             timeoutSeconds: 30
+            periodSeconds: 360
           volumeMounts:
             {{- if .Values.persistence.enabled }}
             - mountPath: /opt/invenio/var/instance/data

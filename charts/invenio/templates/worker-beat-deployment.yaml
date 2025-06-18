@@ -98,6 +98,7 @@ spec:
               - "celery -A {{ .Values.worker.app }} inspect ping"
           initialDelaySeconds: {{ .Values.worker.livenessProbe.initialDelaySeconds }}
           timeoutSeconds: 30
+          periodSeconds: 360
         {{- if .Values.worker.resources }}
         resources: {{- toYaml .Values.workerBeat.resources | nindent 10 }}
         {{- else }}
