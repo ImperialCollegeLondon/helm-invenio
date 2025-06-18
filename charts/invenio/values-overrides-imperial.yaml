@@ -67,9 +67,15 @@ flower:
 #    auth:
 #      password: "REPLACE-ME"
 
-#postgresql:
+postgresql:
+  enabled: false
 #    auth:
 #      password: "REPLACE-ME"
+
+postgresqlExternal:
+  databaseName: "invenio"
+  username: "invenio"
+  port: 5432
 
 ingress:
   enabled: true
