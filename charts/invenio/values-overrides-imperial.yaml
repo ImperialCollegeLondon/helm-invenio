@@ -59,7 +59,7 @@ web:
       memory: 2Gi
 nginx:
   extra_server_config: |
-    location /api/communities {
+    location = /api/communities {
         limit_except GET OPTIONS {
             deny all;
         }
