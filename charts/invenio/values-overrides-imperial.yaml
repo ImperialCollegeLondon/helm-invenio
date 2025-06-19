@@ -17,6 +17,23 @@ invenio:
   #  ICL_OAUTH_CLIENT_ID: "REPLACE-ME"
   #  ICL_OAUTH_CLIENT_SECRET: "REPLACE-ME"
   #  ICL_OAUTH_WELL_KNOWN_URL: "REPLACE-ME"
+  extra_secrets:
+    icl_secrets:
+      enabled: true
+      secret_name: icl-secrets
+  extra_env_from_secret:
+    INVENIO_MAIL_PASSWORD:
+      name: INVENIO_MAIL_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: icl-secrets
+          key: INVENIO_MAIL_PASSWORD
+    ICL_OAUTH_CLIENT_SECRET:
+      name: ICL_OAUTH_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: icl-secrets
+          key: ICL_OAUTH_CLIENT_SECRET
   datacite:
     enabled: true
 web:
