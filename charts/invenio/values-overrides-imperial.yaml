@@ -64,6 +64,11 @@ nginx:
             deny all;
         }
     }
+    # Block all .map files in /static and /static/dist
+    location ~ ^/static/.*\.map$ {
+      deny all;
+      return 403;
+    }
 
 worker:
   image: ""
