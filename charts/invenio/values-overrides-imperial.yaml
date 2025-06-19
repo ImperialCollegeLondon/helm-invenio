@@ -2,23 +2,23 @@
 # Please don't commit them to version control.
 
 invenio:
-    init: true  # initiates db, index, and admin roles
-    hostname: "icl-invenio-dev.uksouth.cloudapp.azure.com"
-    #secret_key: "REPLACE-ME"
-    #security_login_salt: "REPLACE-ME"
-    #csrf_secret_salt: "REPLACE-ME"
-    create_fixtures: true
-    extraConfig:
-      INVENIO_MAIL_SERVER: "smtp.office365.com"
-      INVENIO_MAIL_PORT: "587"
-      INVENIO_MAIL_USE_TLS: "True"
-      INVENIO_SETTINGS_MODULE: "ic_data_repo.config.production"
-      INVENIO_DATACITE_ENABLED: "True"
-    #  ICL_OAUTH_CLIENT_ID: "REPLACE-ME"
-    #  ICL_OAUTH_CLIENT_SECRET: "REPLACE-ME"
-    #  ICL_OAUTH_WELL_KNOWN_URL: "REPLACE-ME"
-    datacite:
-      enabled: true
+  init: true # initiates db, index, and admin roles
+  hostname: "icl-invenio-dev.uksouth.cloudapp.azure.com"
+  #secret_key: "REPLACE-ME"
+  #security_login_salt: "REPLACE-ME"
+  #csrf_secret_salt: "REPLACE-ME"
+  create_fixtures: true
+  extraConfig:
+    INVENIO_MAIL_SERVER: "smtp.office365.com"
+    INVENIO_MAIL_PORT: "587"
+    INVENIO_MAIL_USE_TLS: "True"
+    INVENIO_SETTINGS_MODULE: "ic_data_repo.config.production"
+    INVENIO_DATACITE_ENABLED: "True"
+  #  ICL_OAUTH_CLIENT_ID: "REPLACE-ME"
+  #  ICL_OAUTH_CLIENT_SECRET: "REPLACE-ME"
+  #  ICL_OAUTH_WELL_KNOWN_URL: "REPLACE-ME"
+  datacite:
+    enabled: true
 web:
   image: ""
   readinessProbe:
