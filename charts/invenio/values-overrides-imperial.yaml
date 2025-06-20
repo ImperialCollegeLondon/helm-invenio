@@ -69,6 +69,10 @@ nginx:
       deny all;
       return 403;
     }
+    # Block access to /account/settings/applications/ and subpaths
+    location ~ ^/account/settings/applications(/|$) {
+        deny all;
+    }
 
 worker:
   image: ""
