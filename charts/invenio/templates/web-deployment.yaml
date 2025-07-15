@@ -2,74 +2,63 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web
+  name: {{ include "invenio.fullname" . }}-web
   labels:
     {{- include "invenio.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
 spec:
   replicas: {{ .Values.web.replicas }}
   selector:
     matchLabels:
-      app: web
+      app.kubernetes.io/component: web
   template:
     metadata:
       labels:
-        app: web
+        app.kubernetes.io/component: web
     spec:
       terminationGracePeriodSeconds: {{ .Values.web.terminationGracePeriodSeconds }}
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
+      {{- with .Values.web.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
       containers:
       - name: web
-        image: {{ required "Missing .Values.web.image" .Values.web.image }}
+        image: {{ default .Values.web.image (include "invenio.image" .) }}
+        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
         command: [
             "/bin/bash",
             "-c",
             "uwsgi --ini /opt/invenio/src/uwsgi/uwsgi.ini",
         ]
-        {{- if .Values.web.resources }}
         resources: {{- toYaml .Values.web.resources | nindent 10 }}
-        {{- end }}
         envFrom:
         - configMapRef:
-            name: invenio-config
+            name: {{ include "invenio.fullname" . }}-config
+        - secretRef:
+            name: {{ include "invenio.secretName" . }}
+        {{- with .Values.invenio.extraEnvFrom }}
+        {{- tpl (. | toYaml) $ | nindent 8 }}
+        {{- end }}
+        {{- with .Values.web.extraEnvFrom }}
+        {{- tpl (. | toYaml) $ | nindent 8 }}
+        {{- end }}
         env:
         - name: TZ
           value: {{ required "Missing .Values.global.timezone" .Values.global.timezone }}
-        - name: INVENIO_BROKER_URL
-          value: {{ include "invenio.rabbitmq.uri" . }}
-        - name: INVENIO_CELERY_BROKER_URL
-          value: {{ include "invenio.rabbitmq.uri" . }}
-        - name: INVENIO_SQLALCHEMY_DATABASE_URI
-          value: {{ include "invenio.sqlAlchemyDbUri" . }}
+        {{- include "invenio.config.queue" . | nindent 8 }}
+        {{- include "invenio.config.database" . | nindent 8 }}
+        {{- with .Values.invenio.extraEnvVars }}
+        {{-  toYaml . | nindent 8 }}
+        {{- end }}
         {{- with .Values.web.extraEnvVars }}
         {{-  toYaml . | nindent 8 }}
         {{- end }}
-        - name: INVENIO_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: invenio-secrets
-              key: INVENIO_SECRET_KEY
-        - name: INVENIO_SECURITY_LOGIN_SALT
-          valueFrom:
-            secretKeyRef:
-              name: invenio-secrets
-              key: INVENIO_SECURITY_LOGIN_SALT
-        - name: INVENIO_CSRF_SECRET_SALT
-          valueFrom:
-            secretKeyRef:
-              name: invenio-secrets
-              key: INVENIO_CSRF_SECRET_SALT
         {{- include "invenio.config.sentry" . | nindent 8 }}
-        {{- if .Values.invenio.datacite.enabled }}
-        - name: INVENIO_DATACITE_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.invenio.datacite.secret_name }}
-              key: DATACITE_USERNAME
-        - name: INVENIO_DATACITE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.invenio.datacite.secret_name }}
-              key: DATACITE_PASSWORD
-        {{- end }}
+        {{- include "invenio.config.datacite" . | nindent 8 }}
         {{- if .Values.invenio.remote_apps.enabled }}
         {{- range .Values.invenio.remote_apps.credentials }}
         - name: {{ default (printf "INVENIO_%s_APP_CREDENTIALS" .name) }}
@@ -86,28 +75,9 @@ spec:
               name: {{ .valueFrom.secretKeyRef.name }}
               key: {{ .valueFrom.secretKeyRef.key }}
         {{- end }}
-        readinessProbe:
-          exec:
-            command:
-              - /bin/bash
-              - -c
-              - "uwsgi_curl -X HEAD -H 'Host: {{ include "invenio.hostname" $ }}' $(hostname):5000 /ping"
-          failureThreshold: {{ .Values.web.readinessProbe.failureThreshold }}
-          initialDelaySeconds: {{ .Values.web.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.web.readinessProbe.periodSeconds }}
-          successThreshold: {{ .Values.web.readinessProbe.successThreshold }}
-          timeoutSeconds: {{ .Values.web.readinessProbe.timeoutSeconds }}
-        startupProbe:
-          exec:
-            command:
-              - /bin/bash
-              - -c
-              - "uwsgi_curl -X HEAD -H 'Host: {{ include "invenio.hostname" $ }}' $(hostname):5000 /ping"
-          failureThreshold: {{ .Values.web.startupProbe.failureThreshold }}
-          initialDelaySeconds: {{ .Values.web.startupProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.web.startupProbe.periodSeconds }}
-          successThreshold: {{ .Values.web.startupProbe.successThreshold }}
-          timeoutSeconds: {{ .Values.web.startupProbe.timeoutSeconds }}
+        livenessProbe: {{- tpl (.Values.web.livenessProbe | toYaml) $ | nindent 10 }}
+        readinessProbe: {{- tpl (.Values.web.readinessProbe | toYaml) $ | nindent 10 }}
+        startupProbe: {{- tpl (.Values.web.startupProbe | toYaml) $ | nindent 10 }}
         volumeMounts:
           - name: uwsgi-config
             mountPath: '/opt/invenio/src/uwsgi'
@@ -131,10 +101,9 @@ spec:
             subPath: "{{ $key }}"
           {{- end }}
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+          {{- with .Values.web.securityContext }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       - name: nginx
         image: {{ required "Missing .Values.nginx.image" .Values.nginx.image }}
         env:
@@ -161,9 +130,11 @@ spec:
             port: 8080
           initialDelaySeconds: 15
           timeoutSeconds: 1
-        {{- if .Values.nginx.resources }}
         resources: {{- toYaml .Values.nginx.resources | nindent 10 }}
-        {{- end }}
+        securityContext:
+          {{- with .Values.nginx.securityContext }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       {{- if .Values.logstash.enabled }}
       - name: filebeat
         image: {{ required ".Values.logstash.filebeat_image" .Values.logstash.filebeat_image }}
@@ -180,6 +151,10 @@ spec:
         - name: var-log-nginx
           mountPath: /var/log/nginx
           readOnly: true
+        securityContext:
+          {{- with .Values.logstash.securityContext }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       {{- end }}
       {{- if .Values.kerberos.enabled }}
       - name: kerberos-credentials
@@ -198,30 +173,26 @@ spec:
         volumeMounts:
           - name: kerberos-credentials-cache
             mountPath: /tmp
-      {{- end }}
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+          {{- with .Values.kerberos.securityContext }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      {{- end }}
       initContainers:
         # copy assets from uwsgi to nginx
         - name: copy-web-assets
-          image: {{ required "Missing .Values.web.image" .Values.web.image }}
+          image: {{ default .Values.web.image (include "invenio.image" .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
           command: [
               "/bin/bash",
               "-c",
               "cp -R {{ .Values.web.assets.location }}/. /opt/nginx-invenio-assets/",
           ]
-         {{- if .Values.web.initContainers.resources }}
-          resources:
-            {{- toYaml .Values.web.initContainers.resources | nindent 12 }}
-          {{- end }}
+          resources: {{- toYaml .Values.web.initContainers.resources | nindent 12 }}
           securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
+            {{- with .Values.web.initContainers.securityContext }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           volumeMounts:
             - name: nginx-invenio-assets
               mountPath: /opt/nginx-invenio-assets
@@ -233,19 +204,19 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ .Values.kerberos.secret_name }}
-          resources: {{- toYaml .Values.kerberos.resources | nindent 12 }}
+          resources: {{- toYaml .Values.kerberos.initContainers.resources | nindent 12 }}
           volumeMounts:
             - name: kerberos-credentials-cache
               mountPath: /tmp
+          securityContext:
+            {{- with .Values.web.initContainers.securityContext }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
         {{- end }}
-      {{- if .Values.invenio.podSecurityContext.enabled }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        seccompProfile:
-          type: "RuntimeDefault"
-      {{- end }}
+        {{- with .Values.web.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       volumes:
       {{- if .Values.logstash.enabled }}
       - name: config
@@ -256,7 +227,7 @@ spec:
       - name: nginx-config
         configMap:
           defaultMode: 420
-          name: nginx-config
+          name: {{ include "invenio.fullname" . }}-nginx-config
       - name: var-run
         emptyDir: {}
       - name: var-cache-nginx
@@ -266,7 +237,7 @@ spec:
       - name: uwsgi-config
         configMap:
           defaultMode: 420
-          name: uwsgi-config
+          name: {{ include "invenio.fullname" . }}-uwsgi-config
       - name: nginx-invenio-assets
         emptyDir: {}
       {{- if .Values.persistence.enabled }}
@@ -281,9 +252,13 @@ spec:
       {{- if .Values.invenio.vocabularies }}
       - name: vocabularies
         configMap:
-          name: "invenio-vocabularies"
+          name: "{{ include "invenio.fullname" . }}-vocabularies"
       {{- end }}
       {{- if .Values.web.imagePullSecret }}
       imagePullSecrets:
         - name: {{ .Values.web.imagePullSecret }}
+      {{- end }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
       {{- end }}

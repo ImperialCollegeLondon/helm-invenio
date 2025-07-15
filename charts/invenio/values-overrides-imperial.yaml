@@ -1,9 +1,13 @@
 # NOTE: The commented-out values with "REPLACE-ME" must be supplied via helm --set if not provided here
 # Please don't commit them to version control.
 
+image:
+  registry: ghcr.io/imperialcollegelondon
+  repository: fair-data-repository
+
 invenio:
   init: true # initiates db, index, and admin roles
-  hostname: "icl-invenio-dev.uksouth.cloudapp.azure.com"
+  hostname: ""
   #secret_key: "REPLACE-ME"
   #security_login_salt: "REPLACE-ME"
   #csrf_secret_salt: "REPLACE-ME"
@@ -13,29 +17,23 @@ invenio:
     INVENIO_MAIL_PORT: "587"
     INVENIO_MAIL_USE_TLS: "True"
     INVENIO_SETTINGS_MODULE: "ic_data_repo.config.production"
-    INVENIO_DATACITE_ENABLED: "True"
   #  ICL_OAUTH_CLIENT_ID: "REPLACE-ME"
   #  ICL_OAUTH_CLIENT_SECRET: "REPLACE-ME"
   #  ICL_OAUTH_WELL_KNOWN_URL: "REPLACE-ME"
+  existingSecret: icl-secrets
   extra_secrets:
     icl_secrets:
       enabled: true
       secret_name: icl-secrets
-  extra_env_from_secret:
-    INVENIO_MAIL_PASSWORD:
-      name: INVENIO_MAIL_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: icl-secrets
-          key: INVENIO_MAIL_PASSWORD
-    ICL_OAUTH_CLIENT_SECRET:
-      name: ICL_OAUTH_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: icl-secrets
-          key: ICL_OAUTH_CLIENT_SECRET
+    database_secrets:
+      enabled: true
+      secret_name: database-password-secrets
+    rabbitmq_secrets:
+      enabled: true
+      secret_name: rabbitmq-password-secrets
   datacite:
     enabled: true
+    existingSecret:
 web:
   image: ""
   readinessProbe:
@@ -57,8 +55,16 @@ web:
     limits:
       cpu: 1000m
       memory: 2Gi
+  initContainers:
+    resources:
+      requests:
+        cpu: "1"
+        memory: 100Mi
+      limits:
+        cpu: "1"
+        memory: 100Mi
 nginx:
-  extra_server_config: |
+  extraServerConfig: |
     location = /api/communities {
         limit_except GET OPTIONS {
             deny all;
@@ -73,11 +79,22 @@ nginx:
     location ~ ^/account/settings/applications(/|$) {
         deny all;
     }
-
+  resources:
+    requests:
+      cpu: 250m
+      memory: 500Mi
+    limits:
+      cpu: 250m
+      memory: 500Mi
 worker:
   image: ""
   livenessProbe:
     initialDelaySeconds: 120
+    periodSeconds: 360
+
+workerBeat:
+  livenessProbe:
+    periodSeconds: 360
 
 persistence:
   enabled: true
@@ -99,9 +116,11 @@ postgresql:
 #      password: "REPLACE-ME"
 
 postgresqlExternal:
-  databaseName: "invenio"
+  database: "invenio"
   username: "invenio"
   port: 5432
+  existingSecret: database-password-secrets
+  existingSecretPasswordKey: POSTGRES_PASSWORD
 
 ingress:
   enabled: true
@@ -126,3 +145,35 @@ opensearch:
         cpu: 500m
         ephemeral-storage: 50Mi
         memory: 1.5Gi
+
+redis:
+  persistence:
+    size: 8Gi
+  master:
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 500Mi
+  replica:
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 500Mi
+
+rabbitmq:
+  auth:
+    existingPasswordSecret: rabbitmq-password-secrets
+    existingSecretPasswordKey: RABBITMQ_PASSWORD
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi
+    requests:
+      cpu: "1"
+      memory: 2Gi

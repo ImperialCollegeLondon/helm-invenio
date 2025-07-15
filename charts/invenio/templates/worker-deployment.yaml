@@ -2,78 +2,66 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: worker
+  name: {{ include "invenio.fullname" . }}-worker
   labels:
     {{- include "invenio.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
 spec:
   replicas: {{ .Values.worker.replicas }}
   selector:
     matchLabels:
-      app: worker
+      app.kubernetes.io/component: worker
   template:
     metadata:
       labels:
-        app: worker
+        app.kubernetes.io/component: worker
     spec:
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
       containers:
         - name: worker
-          image: {{ required "Missing .Values.worker.image" .Values.worker.image }}
+          image: {{ default .Values.worker.image (include "invenio.image" .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
           command: [
               "/bin/bash",
               "-c",
               "celery -A {{ .Values.worker.app }} worker -c {{ .Values.worker.concurrency }} -l {{ .Values.worker.log_level }}"
           ]
-          {{- if .Values.worker.resources }}
           resources: {{- toYaml .Values.worker.resources | nindent 12 }}
-          {{- end }}
           securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
+            {{- with .Values.worker.securityContext }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           envFrom:
             - configMapRef:
-                name: invenio-config
+                name: {{ include "invenio.fullname" . }}-config
+            - secretRef:
+                name: {{ include "invenio.secretName" . }}
+            {{- with .Values.invenio.extraEnvFrom }}
+            {{- tpl (. | toYaml) $ | nindent 12 }}
+            {{- end }}
+            {{- with .Values.worker.extraEnvFrom }}
+            {{- tpl (. | toYaml) $ | nindent 12 }}
+            {{- end }}
           env:
           - name: TZ
             value: {{ required "Missing .Values.global.timezone" .Values.global.timezone }}
-          - name: INVENIO_BROKER_URL
-            value: {{ include "invenio.rabbitmq.uri" . }}
-          - name: INVENIO_CELERY_BROKER_URL
-            value: {{ include "invenio.rabbitmq.uri" . }}
-          - name: INVENIO_SQLALCHEMY_DATABASE_URI
-            value: {{ include "invenio.sqlAlchemyDbUri" . }}
+          {{- include "invenio.config.queue" . | nindent 10 }}
+          {{- include "invenio.config.database" . | nindent 10 }}
+          {{- with .Values.invenio.extraEnvVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.worker.extraEnvVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
-          - name: INVENIO_SECRET_KEY
-            valueFrom:
-              secretKeyRef:
-                name: invenio-secrets
-                key: INVENIO_SECRET_KEY
-          - name: INVENIO_SECURITY_LOGIN_SALT
-            valueFrom:
-              secretKeyRef:
-                name: invenio-secrets
-                key: INVENIO_SECURITY_LOGIN_SALT
-          - name: INVENIO_CSRF_SECRET_SALT
-            valueFrom:
-              secretKeyRef:
-                name: invenio-secrets
-                key: INVENIO_CSRF_SECRET_SALT
           {{- include "invenio.config.sentry" . | nindent 10 }}
-          {{- if .Values.invenio.datacite.enabled }}
-          - name: INVENIO_DATACITE_USERNAME
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.invenio.datacite.secret_name }}
-                key: DATACITE_USERNAME
-          - name: INVENIO_DATACITE_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.invenio.datacite.secret_name }}
-                key: DATACITE_PASSWORD
-          {{- end }}
+          {{- include "invenio.config.datacite" . | nindent 10 }}
           {{- if .Values.invenio.remote_apps.enabled }}
           {{- range .Values.invenio.remote_apps.credentials }}
           - name: {{ default (printf "INVENIO_%s_APP_CREDENTIALS" .name) }}
@@ -90,15 +78,9 @@ spec:
                 name: {{ .valueFrom.secretKeyRef.name }}
                 key: {{ .valueFrom.secretKeyRef.key }}
           {{- end }}
-          livenessProbe:
-            exec:
-              command:
-                - /bin/bash
-                - -c
-                - "celery -A {{ .Values.worker.app }} inspect ping -d celery@$(hostname)"
-            initialDelaySeconds: {{ .Values.worker.livenessProbe.initialDelaySeconds }}
-            timeoutSeconds: 30
-            periodSeconds: 360
+          livenessProbe: {{- tpl (.Values.worker.livenessProbe | toYaml) $ | nindent 12 }}
+          readinessProbe: {{- tpl (.Values.worker.readinessProbe | toYaml) $ | nindent 12 }}
+          startupProbe: {{- tpl (.Values.worker.startupProbe | toYaml) $ | nindent 12 }}
           volumeMounts:
             {{- if .Values.persistence.enabled }}
             - mountPath: /opt/invenio/var/instance/data
@@ -142,19 +124,15 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ .Values.kerberos.secret_name }}
-          resources: {{- toYaml .Values.kerberos.resources | nindent 12 }}
+          resources: {{- toYaml .Values.kerberos.initContainers.resources | nindent 12 }}
           volumeMounts:
             - name: kerberos-credentials-cache
               mountPath: /tmp
       {{- end }}
-      {{- if .Values.invenio.podSecurityContext.enabled }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        seccompProfile:
-          type: "RuntimeDefault"
-      {{- end }}
+        {{- with .Values.worker.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       volumes:
         {{- if .Values.persistence.enabled }}
         - name: shared-volume
@@ -168,9 +146,13 @@ spec:
         {{- if .Values.invenio.vocabularies }}
         - name: vocabularies
           configMap:
-            name: "invenio-vocabularies"
+            name: "{{ include "invenio.fullname" . }}-vocabularies"
         {{- end }}
       {{- if .Values.worker.imagePullSecret }}
       imagePullSecrets:
       - name: {{ .Values.worker.imagePullSecret }}
+      {{- end }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
       {{- end }}

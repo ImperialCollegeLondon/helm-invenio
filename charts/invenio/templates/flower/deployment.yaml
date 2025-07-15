@@ -23,14 +23,17 @@ spec:
               [
                 "celery",
                 "--config=/var/celery/celeryconfig.py",
-                {{ printf "--broker=%s" (include "invenio.rabbitmq.uri" .) }},
+                "--broker=$(INVENIO_CELERY_BROKER_URL)",
                 "flower",
-                {{ printf "--broker_api=%s" (include "invenio.rabbitmq.apiUri" .) }},
+                "--broker_api=$(RABBITMQ_API_URI)",
                 "--basic_auth=$(FLOWER_BASIC_AUTH_CREDENTIALS)",
                 "--conf=/var/flower/flowerconfig.py"
               ]
           ports:
             - containerPort: 5555
+          livenessProbe: {{- tpl (.Values.flower.livenessProbe | toYaml) $ | nindent 12 }}
+          readinessProbe: {{- tpl (.Values.flower.readinessProbe | toYaml) $ | nindent 12 }}
+          startupProbe: {{- tpl (.Values.flower.startupProbe | toYaml) $ | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -44,9 +47,12 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.flower.secret_name }}
                   key: FLOWER_BASIC_AUTH_CREDENTIALS
-          {{- if .Values.flower.resources }}
-          resources: {{- toYaml .Values.flower.resources | nindent 12 }}
+            {{- include "invenio.config.queue" . | nindent 12 }}
+          {{- with .Values.flower.extraEnvFrom }}
+          envFrom:
+            {{- tpl (. | toYaml) $ | nindent 12 }}
           {{- end }}
+          resources: {{- toYaml .Values.flower.resources | nindent 12 }}
           volumeMounts:
             - name: celery-config-volume
               mountPath: /var/celery
@@ -59,6 +65,14 @@ spec:
         runAsGroup: 1000
         seccompProfile:
           type: "RuntimeDefault"
+      {{- end }}
+      {{- with .Values.flower.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
+      {{- with .Values.flower.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
       {{- end }}
       volumes:
         - name: celery-config-volume

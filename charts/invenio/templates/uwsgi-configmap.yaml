@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: uwsgi-config
+  name: {{ include "invenio.fullname" . }}-uwsgi-config
   labels:
     {{- include "invenio.labels" . | nindent 4 }}
 data:
@@ -57,3 +57,6 @@ data:
     die-on-term = true
     # hook-master-start = unix_signal:2 gracefully_kill_them_all
     # hook-master-start = unix_signal:15 gracefully_kill_them_all
+    {{- range $key, $val := .Values.invenio.uwsgiExtraConfig }}
+    {{ $key }} = {{ $val }}
+    {{- end }}

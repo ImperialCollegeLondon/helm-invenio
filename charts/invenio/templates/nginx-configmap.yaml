@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-config
+  name: {{ include "invenio.fullname" . }}-nginx-config
   labels:
     {{- include "invenio.labels" . | nindent 4 }}
 data:
@@ -237,5 +237,6 @@ data:
         }
 
 {{ .Values.nginx.extra_server_config | indent 8 }}
+{{ tpl .Values.nginx.extraServerConfig $ | indent 8 }}
 
     }

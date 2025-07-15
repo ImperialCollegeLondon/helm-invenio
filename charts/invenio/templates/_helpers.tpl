@@ -6,6 +6,24 @@ Expand the name of the chart.
 {{- end }}
 
 {{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name, the release name will be used as a full name.
+*/}}
+{{- define "invenio.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "invenio.chart" -}}
@@ -32,12 +50,29 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
+{{/*
+Return the proper Invenio image name
+*/}}
+{{- define "invenio.image" -}}
+{{- $registryName :=  required "Missing .Values.image.registry" .Values.image.registry -}}
+{{- $repositoryName :=  required "Missing .Values.image.repository" .Values.image.repository -}}
+{{- $separator := ":" -}}
+{{- $termination := .Values.image.tag | default .Chart.AppVersion | toString -}}
+
+{{- if .Values.image.digest }}
+  {{- $separator = "@" -}}
+  {{- $termination = .Values.image.digest | toString -}}
+{{- end -}}
+
+{{- printf "%s/%s%s%s" $registryName $repositoryName $separator $termination -}}
+{{- end -}}
+
 ###########################     Invenio hostname     ###########################
 {{/*
   This template renders the hostname for Invenio.
 */}}
 {{- define "invenio.hostname" -}}
-  {{- required "Missing .Values.invenio.hostname" .Values.invenio.hostname }}
+  {{- tpl (required "Missing .Values.invenio.hostname" .Values.invenio.hostname) . }}
 {{- end -}}
 
 ############################     Redis Hostname     ############################
@@ -65,7 +100,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- end }}
 {{- end -}}
 
-#######################     RabbitMQ password secret     #######################
+#######################     RabbitMQ connection configuration     #######################
 {{/*
   This template renders the name of the secret that stores the password for RabbitMQ.
 */}}
@@ -77,7 +112,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- end }}
 {{- end -}}
 
-##########################     RabbitMQ username     ##########################
 {{/*
   This template renders the username for accessing RabbitMQ.
 */}}
@@ -85,11 +119,10 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- if .Values.rabbitmq.enabled }}
     {{- required "Missing .Values.rabbitmq.auth.username" .Values.rabbitmq.auth.username -}}
   {{- else }}
-    {{- required "Missing .Values.rabbitmqExternal.username" .Values.rabbitmqExternal.username -}}
+    {{- required "Missing .Values.rabbitmqExternal.username" (tpl .Values.rabbitmqExternal.username .) -}}
   {{- end }}
 {{- end -}}
 
-##########################     RabbitMQ password     ##########################
 {{/*
   This template renders the password for accessing RabbitMQ.
 */}}
@@ -101,31 +134,50 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- end }}
 {{- end -}}
 
-##########################     RabbitMQ AMQP port     ##########################
+{{/*
+  Get the database password secret name
+*/}}
+{{- define "invenio.rabbitmq.secretName" -}}
+  {{- if .Values.rabbitmq.enabled -}}
+    {{- required "Missing .Values.rabbitmq.auth.existingPasswordSecret" (tpl .Values.rabbitmq.auth.existingPasswordSecret .) -}}
+  {{- else -}}
+    {{- required "Missing .Values.rabbitmqExternal.existingSecret" (tpl .Values.rabbitmqExternal.existingSecret .) -}}
+  {{- end -}}
+{{- end -}}
+
+{{/*
+  Get the database password secret key
+*/}}
+{{- define "invenio.rabbitmq.secretKey" -}}
+  {{- if .Values.rabbitmq.enabled -}}
+    {{- required "Missing .Values.rabbitmq.auth.existingSecretPasswordKey" .Values.rabbitmq.auth.existingSecretPasswordKey -}}
+  {{- else -}}
+    {{- required "Missing .Values.rabbitmqExternal.existingSecretPasswordKey" .Values.rabbitmqExternal.existingSecretPasswordKey -}}
+  {{- end -}}
+{{- end -}}
+
 {{/*
   This template renders the AMQP port number for RabbitMQ.
 */}}
-{{- define "invenio.rabbitmq.amqpPort" -}}
+{{- define "invenio.rabbitmq.amqpPortString" -}}
   {{- if .Values.rabbitmq.enabled }}
-    {{- required "Missing .Values.rabbitmq.service.ports.amqp" .Values.rabbitmq.service.ports.amqp -}}
+    {{- required "Missing .Values.rabbitmq.service.ports.amqp" .Values.rabbitmq.service.ports.amqp | quote -}}
   {{- else }}
-    {{- required "Missing .Values.rabbitmqExternal.amqpPort" .Values.rabbitmqExternal.amqpPort -}}
+    {{- required "Missing .Values.rabbitmqExternal.amqpPort" (tpl (toString .Values.rabbitmqExternal.amqpPort) .) | quote -}}
   {{- end }}
 {{- end -}}
 
-#######################     RabbitMQ management port     #######################
 {{/*
   This template renders the management port number for RabbitMQ.
 */}}
-{{- define "invenio.rabbitmq.managementPort" -}}
+{{- define "invenio.rabbitmq.managementPortString" -}}
   {{- if .Values.rabbitmq.enabled }}
-    {{- required "Missing .Values.rabbitmq.service.ports.manager" .Values.rabbitmq.service.ports.manager -}}
+    {{- required "Missing .Values.rabbitmq.service.ports.manager" .Values.rabbitmq.service.ports.manager | quote -}}
   {{- else }}
-    {{- required "Missing .Values.rabbitmqExternal.managementPort" .Values.rabbitmqExternal.managementPort -}}
+    {{- required "Missing .Values.rabbitmqExternal.managementPort" (tpl (toString .Values.rabbitmqExternal.managementPort) .) | quote -}}
   {{- end }}
 {{- end -}}
 
-##########################     RabbitMQ hostname     ##########################
 {{/*
   This template renders the hostname for RabbitMQ.
 */}}
@@ -133,11 +185,10 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- if .Values.rabbitmq.enabled }}
     {{- include "common.names.fullname" .Subcharts.rabbitmq -}}
   {{- else }}
-    {{- required "Missing .Values.rabbitmqExternal.hostname" .Values.rabbitmqExternal.hostname }}
+    {{- required "Missing .Values.rabbitmqExternal.hostname" (tpl .Values.rabbitmqExternal.hostname .) }}
   {{- end }}
 {{- end -}}
 
-##########################     RabbitMQ protocol     ##########################
 {{/*
   This template renders the protocol for RabbitMQ.
 */}}
@@ -149,7 +200,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- end }}
 {{- end -}}
 
-##########################     RabbitMQ vhost     ##########################
 {{/*
   This template renders the vhost for RabbitMQ.
 */}}
@@ -157,34 +207,40 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- if .Values.rabbitmq.enabled }}
     {{- "" }}
   {{- else }}
-    {{- required "Missing .Values.rabbitmqExternal.vhost" .Values.rabbitmqExternal.vhost }}
+    {{- required "Missing .Values.rabbitmqExternal.vhost" (tpl .Values.rabbitmqExternal.vhost .) }}
   {{- end }}
 {{- end -}}
 
-##########################     Celery broker URI     ##########################
 {{/*
-  This template renders the URI for connecting to RabbitMQ.
+  RabbitMQ connection env section.
 */}}
-{{- define "invenio.rabbitmq.uri" -}}
-  {{- $username := (include "invenio.rabbitmq.username" .) -}}
-  {{- $password := (include "invenio.rabbitmq.password" .) -}}
-  {{- $port := (include "invenio.rabbitmq.amqpPort" .) -}}
-  {{- $hostname := (include "invenio.rabbitmq.hostname" .) -}}
-  {{- $protocol := (include "invenio.rabbitmq.protocol" .) -}}
-  {{- $vhost := (include "invenio.rabbitmq.vhost" .) -}}
-  {{- printf "%s://%s:%s@%s:%v/%s" $protocol $username $password $hostname $port $vhost}}
-{{- end -}}
-
-###########################     RabbitMQ API URI     ###########################
-{{/*
-  This template renders the URI for RabbitMQ's API endpoint.
-*/}}
-{{- define "invenio.rabbitmq.apiUri" -}}
-  {{- $username := (include "invenio.rabbitmq.username" .) -}}
-  {{- $password := (include "invenio.rabbitmq.password" .) -}}
-  {{- $port := (include "invenio.rabbitmq.managementPort" .) -}}
-  {{- $hostname := (include "invenio.rabbitmq.hostname" .) -}}
-  {{- printf "http://%s:%s@%s:%v/api/" $username $password $hostname $port }}
+{{- define "invenio.config.queue" -}}
+{{- $uri := "$(INVENIO_AMQP_BROKER_PROTOCOL)://$(INVENIO_AMQP_BROKER_USER):$(INVENIO_AMQP_BROKER_PASSWORD)@$(INVENIO_AMQP_BROKER_HOST):$(INVENIO_AMQP_BROKER_PORT)/$(INVENIO_AMQP_BROKER_VHOST)" -}}
+- name: INVENIO_AMQP_BROKER_USER
+  value: {{ include "invenio.rabbitmq.username" . }}
+- name: INVENIO_AMQP_BROKER_HOST
+  value: {{ include "invenio.rabbitmq.hostname" . }}
+- name: INVENIO_AMQP_BROKER_PORT
+  value: {{ include "invenio.rabbitmq.amqpPortString" . }}
+- name: INVENIO_AMQP_BROKER_VHOST
+  value: {{ include "invenio.rabbitmq.vhost" . }}
+- name: INVENIO_AMQP_BROKER_PROTOCOL
+  value: {{ include "invenio.rabbitmq.protocol" . }}
+- name: INVENIO_AMQP_BROKER_PASSWORD
+{{- if or (and .Values.rabbitmq.enabled .Values.rabbitmq.auth.password) .Values.rabbitmqExternal.password }}
+  value: {{ include "invenio.rabbitmq.password" .  | quote }}
+{{- else }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "invenio.rabbitmq.secretName" .}}
+      key: {{ include "invenio.rabbitmq.secretKey" .}}
+{{- end }}
+- name: INVENIO_BROKER_URL
+  value: {{ $uri }}
+- name: INVENIO_CELERY_BROKER_URL
+  value: $(INVENIO_BROKER_URL)
+- name: RABBITMQ_API_URI
+  value: "http://$(INVENIO_AMQP_BROKER_USER):$(INVENIO_AMQP_BROKER_PASSWORD)@$(INVENIO_AMQP_BROKER_HOST):$(INVENIO_AMQP_BROKER_PORT)/api/"
 {{- end -}}
 
 #########################     OpenSearch hostname     #########################
@@ -199,33 +255,52 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- end }}
 {{- end -}}
 
-#########################     PostgreSQL username     #########################
+#########################     PostgreSQL connection configuration     #########################
 {{/*
   This template renders the username used for the PostgreSQL instance.
 */}}
 {{- define "invenio.postgresql.username" -}}
   {{- if .Values.postgresql.enabled -}}
-    {{- required "Missing .Values.postgresql.auth.username" .Values.postgresql.auth.username -}}
-    {{/* NOTE: Specifying username explicitly like this is suboptmal. Would be desirable to refactor Invenio so it can take the postgres username as a spearate environment variable which we can populate dynamically from the secret. */}}
+    {{- required "Missing .Values.postgresql.auth.username" (tpl .Values.postgresql.auth.username .) -}}
   {{- else -}}
-    {{- required "Missing .Values.postgresqlExternal.username" .Values.postgresqlExternal.username -}}
+    {{- required "Missing .Values.postgresqlExternal.username" (tpl  .Values.postgresqlExternal.username .) -}}
   {{- end -}}
 {{- end -}}
 
-#########################     PostgreSQL password     #########################
 {{/*
   This template renders the password used for the PostgreSQL instance.
+  In production environments we encourage you to use secrets instead.
 */}}
 {{- define "invenio.postgresql.password" -}}
   {{- if .Values.postgresql.enabled -}}
     {{- required "Missing .Values.postgresql.auth.password" .Values.postgresql.auth.password -}}
-    {{/* NOTE: Specifying password explicitly like this is suboptmal. Would be desirable to refactor Invenio so it can take the postgres password as a spearate environment variable which we can populate dynamically from the secret. */}}
   {{- else -}}
     {{- required "Missing .Values.postgresqlExternal.password" .Values.postgresqlExternal.password -}}
   {{- end -}}
 {{- end -}}
 
-#########################     PostgreSQL hostname     #########################
+{{/*
+  Get the database password secret name
+*/}}
+{{- define "invenio.postgresql.secretName" -}}
+  {{- if .Values.postgresql.enabled -}}
+    {{- required "Missing .Values.postgresql.auth.existingSecret" (tpl .Values.postgresql.auth.existingSecret .) -}}
+  {{- else -}}
+    {{- required "Missing .Values.postgresqlExternal.existingSecret" (tpl .Values.postgresqlExternal.existingSecret .) -}}
+  {{- end -}}
+{{- end -}}
+
+{{/*
+  Get the database password secret key
+*/}}
+{{- define "invenio.postgresql.secretKey" -}}
+  {{- if .Values.postgresql.enabled -}}
+    {{- required "Missing .Values.postgresql.auth.secretKeys.userPasswordKey" .Values.postgresql.auth.secretKeys.userPasswordKey -}}
+  {{- else -}}
+    {{- required "Missing .Values.postgresqlExternal.existingSecretPasswordKey" .Values.postgresqlExternal.existingSecretPasswordKey -}}
+  {{- end -}}
+{{- end -}}
+
 {{/*
   This template renders the hostname used for the PostgreSQL instance.
 */}}
@@ -233,45 +308,57 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- if .Values.postgresql.enabled -}}
     {{- include "postgresql.v1.primary.fullname" .Subcharts.postgresql -}}
   {{- else -}}
-    {{- required "Missing .Values.postgresqlExternal.hostname" .Values.postgresqlExternal.hostname -}}
+    {{- required "Missing .Values.postgresqlExternal.hostname" (tpl .Values.postgresqlExternal.hostname .) -}}
   {{- end -}}
 {{- end -}}
 
-###########################     PostgreSQL port     ###########################
 {{/*
-  This template renders the port number used for the PostgreSQL instance.
+  This template renders the port number used for the PostgreSQL instance (as a string).
 */}}
-{{- define "invenio.postgresql.port" -}}
+{{- define "invenio.postgresql.portString" -}}
   {{- if .Values.postgresql.enabled -}}
-    {{- required "Missing .Values.postgresql.primary.service.ports.postgresql" .Values.postgresql.primary.service.ports.postgresql -}}
+    {{- required "Missing .Values.postgresql.primary.service.ports.postgresql" (tpl (toString .Values.postgresql.primary.service.ports.postgresql) .) | quote -}}
   {{- else -}}
-    {{- required "Missing .Values.postgresqlExternal.port" .Values.postgresqlExternal.port -}}
+    {{- required "Missing .Values.postgresqlExternal.port" (tpl (toString .Values.postgresqlExternal.port) .) | quote -}}
   {{- end -}}
 {{- end -}}
 
-############################     Database name     ############################
 {{/*
   This template renders the name of the database in PostgreSQL.
 */}}
-{{- define "invenio.postgresql.databaseName" -}}
+{{- define "invenio.postgresql.database" -}}
   {{- if .Values.postgresql.enabled -}}
-    {{- required "Missing .Values.postgresql.auth.database" .Values.postgresql.auth.database -}}
+    {{- required "Missing .Values.postgresql.auth.database" (tpl .Values.postgresql.auth.database .) -}}
   {{- else -}}
-    {{- required "Missing .Values.postgresqlExternal.databaseName" .Values.postgresqlExternal.databaseName -}}
+    {{- required "Missing .Values.postgresqlExternal.database" (tpl .Values.postgresqlExternal.database .) -}}
   {{- end -}}
 {{- end -}}
 
-#######################     SQLAlchemy database URI     #######################
 {{/*
-  This template renders the SQLAlchemy database URI.
+  Define database connection env section.
 */}}
-{{- define "invenio.sqlAlchemyDbUri" -}}
-  {{- $username := include "invenio.postgresql.username" . -}}
-  {{- $password := include "invenio.postgresql.password" . -}}
-  {{- $hostname := include "invenio.postgresql.hostname" . -}}
-  {{- $port := include "invenio.postgresql.port" . -}}
-  {{- $databaseName := include "invenio.postgresql.databaseName" . -}}
-  {{- printf "postgresql+psycopg2://%s:%s@%s:%v/%s" $username $password $hostname $port $databaseName -}}
+{{- define "invenio.config.database" -}}
+- name: INVENIO_DB_USER
+  value: {{ include "invenio.postgresql.username" . }}
+- name: INVENIO_DB_HOST
+  value: {{ include "invenio.postgresql.hostname" . }}
+- name: INVENIO_DB_PORT
+  value: {{ include "invenio.postgresql.portString" . }}
+- name: INVENIO_DB_NAME
+  value: {{ include "invenio.postgresql.database" . }}
+- name: INVENIO_DB_PROTOCOL
+  value: "postgresql+psycopg2"
+- name: INVENIO_DB_PASSWORD
+{{- if or (and .Values.postgresql.enabled .Values.postgresql.auth.password) .Values.postgresqlExternal.password }}
+  value: {{ include "invenio.postgresql.password" .  | quote }}
+{{- else }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "invenio.postgresql.secretName" .}}
+      key: {{ include "invenio.postgresql.secretKey" .}}
+{{- end }}
+- name: INVENIO_SQLALCHEMY_DATABASE_URI
+  value: "$(INVENIO_DB_PROTOCOL)://$(INVENIO_DB_USER):$(INVENIO_DB_PASSWORD)@$(INVENIO_DB_HOST):$(INVENIO_DB_PORT)/$(INVENIO_DB_NAME)"
 {{- end -}}
 
 {{/*
@@ -281,9 +368,9 @@ Get the sentry secret name
 {{- if .Values.invenio.sentry.existingSecret -}}
   {{- print (tpl .Values.invenio.sentry.existingSecret .) -}}
 {{- else if  .Values.invenio.sentry.secret_name -}}
-  {{- print .Values.invenio.sentry.secret_name -}}  
+  {{- print .Values.invenio.sentry.secret_name -}}
 {{- else -}}
-  {{- "sentry-secrets" -}}
+  {{- printf "%s-%s" (include "invenio.fullname" .) "sentry" -}}
 {{- end -}}
 {{- end -}}
 
@@ -297,5 +384,92 @@ Add sentry environmental variables
     secretKeyRef:
       name: {{ include "invenio.sentrySecretName" . }}
       key: {{ .Values.invenio.sentry.secretKeys.dsnKey }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Invenio basic configuration variables
+*/}}
+{{- define "invenio.configBase" -}}
+INVENIO_ACCOUNTS_SESSION_REDIS_URL: 'redis://{{ include "invenio.redis.hostname" . }}:6379/1'
+INVENIO_APP_ALLOWED_HOSTS: '["{{ include "invenio.hostname" $ }}"]'
+INVENIO_CACHE_REDIS_HOST: '{{ include "invenio.redis.hostname" . }}'
+INVENIO_CACHE_REDIS_URL: 'redis://{{ include "invenio.redis.hostname" . }}:6379/0'
+INVENIO_CELERY_RESULT_BACKEND: 'redis://{{ include "invenio.redis.hostname" . }}:6379/2'
+INVENIO_IIIF_CACHE_REDIS_URL: 'redis://{{ include "invenio.redis.hostname" . }}:6379/0'
+INVENIO_RATELIMIT_STORAGE_URI: 'redis://{{ include "invenio.redis.hostname" . }}:6379/3'
+INVENIO_COMMUNITIES_IDENTITIES_CACHE_REDIS_URL: 'redis://{{ include "invenio.redis.hostname" . }}:6379/4'
+INVENIO_SEARCH_HOSTS: {{ printf "[{'host': '%s'}]" (include "invenio.opensearch.hostname" .) | quote }}
+INVENIO_SITE_HOSTNAME: '{{ include "invenio.hostname" $ }}'
+INVENIO_SITE_UI_URL: 'https://{{ include "invenio.hostname" $ }}'
+INVENIO_SITE_API_URL: 'https://{{ include "invenio.hostname" $ }}/api'
+INVENIO_DATACITE_ENABLED: {{ ternary "True" "False" .Values.invenio.datacite.enabled | quote }}
+INVENIO_LOGGING_CONSOLE_LEVEL: "WARNING"
+{{- end -}}
+
+{{/*
+Merge invenio.extraConfig and configBase using mergeOverwrite and rendering templates.
+invenio.ExtraConfig will overwrite the values from configBase in case of duplicates.
+*/}}
+{{- define "invenio.mergeConfig" -}}
+{{- $dst := dict -}}
+{{- $values := list (include "invenio.configBase" .)  (.Values.invenio.extra_config | toYaml) (.Values.invenio.extraConfig | toYaml) -}}
+{{- range $values -}}
+{{- $dst = tpl  . $ | fromYaml | mergeOverwrite $dst -}}
+{{- end -}}
+{{- $dst | toYaml -}}
+{{- end -}}
+
+{{/*
+Get the invenio general secret name
+*/}}
+{{- define "invenio.secretName" -}}
+{{- if .Values.invenio.existingSecret -}}
+  {{- tpl .Values.invenio.existingSecret . -}}
+{{- else -}}
+  {{- include "invenio.fullname" . -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the sentry secret name
+*/}}
+{{- define "invenio.dataciteSecretName" -}}
+{{- if .Values.invenio.datacite.existingSecret -}}
+  {{- print (tpl .Values.invenio.datacite.existingSecret .) -}}
+{{- else if  .Values.invenio.datacite.secret_name -}}
+  {{- print .Values.invenio.datacite.secret_name -}}
+{{- else -}}
+  {{- printf "%s-%s" (include "invenio.fullname" .) "datacite" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Add datacite environmental variables
+*/}}
+{{- define "invenio.config.datacite" -}}
+{{- if .Values.invenio.datacite.enabled }}
+- name: INVENIO_DATACITE_USERNAME
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "invenio.dataciteSecretName" . }}
+      key: {{ .Values.invenio.datacite.secretKeys.usernameKey }}
+- name: INVENIO_DATACITE_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "invenio.dataciteSecretName" . }}
+      key: {{ .Values.invenio.datacite.secretKeys.passwordKey }}
+- name: INVENIO_DATACITE_PREFIX
+  value: {{ required "Missing .Values.invenio.datacite.prefix" .Values.invenio.datacite.prefix | quote }}
+- name: INVENIO_DATACITE_TEST_MODE
+  value: {{ required "Missing .Values.invenio.values.datacite.testMode" .Values.invenio.datacite.testMode | quote }}
+{{- with .Values.invenio.datacite.format }}
+- name: INVENIO_DATACITE_FORMAT
+  value: {{ . }}
+{{- end}}
+{{- with .Values.invenio.datacite.dataCenterSymbol }}
+- name: INVENIO_DATACITE_DATACENTER_SYMBOL
+  value: {{ . }}
+{{- end}}
 {{- end }}
 {{- end -}}
