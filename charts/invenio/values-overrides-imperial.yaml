@@ -124,12 +124,10 @@ postgresqlExternal:
 
 ingress:
   enabled: true
-  class: "webapprouting.kubernetes.azure.com"
   tlsSecretNameOverride: "invenio-letsencrypt-secret"
   annotations:
-    kubernetes.io/ingress.class: "webapprouting.kubernetes.azure.com"
-    cert-manager.io/cluster-issuer: "letsencrypt-production"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50G"
+    kubernetes.io/ingress.class: "azure/application-gateway"
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
 
 clusterissuer:
   email: "sysadmin+icl@cottagelabs.com"
