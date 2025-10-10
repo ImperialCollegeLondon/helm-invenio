@@ -42,12 +42,22 @@ web:
     periodSeconds: 15
     successThreshold: 1
     timeoutSeconds: 1
+    exec:
+      command:
+        - /bin/bash
+        - -c
+        - '/opt/invenio/src/.venv/bin/uwsgi_curl -X HEAD -H ''Host: {{ include "invenio.hostname" $ }}'' $(hostname):5000 /ping'
   startupProbe:
     failureThreshold: 3
     initialDelaySeconds: 60
     periodSeconds: 15
     successThreshold: 1
     timeoutSeconds: 5
+    exec:
+      command:
+        - /bin/bash
+        - -c
+        - '/opt/invenio/src/.venv/bin/uwsgi_curl -X HEAD -H ''Host: {{ include "invenio.hostname" $ }}'' $(hostname):5000 /ping'
   resources:
     requests:
       cpu: 750m
