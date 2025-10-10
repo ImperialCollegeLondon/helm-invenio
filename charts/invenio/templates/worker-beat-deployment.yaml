@@ -31,7 +31,7 @@ spec:
         command: [
           "/bin/bash",
           "-c",
-          "celery -A {{ .Values.worker.app }} beat -l {{ .Values.worker.log_level }} -s {{ .Values.worker.celery_schedule }} --pidfile {{ .Values.worker.celery_pidfile }}"
+          "/opt/invenio/src/.venv/bin/celery -A {{ .Values.worker.app }} beat -l {{ .Values.worker.log_level }} -s {{ .Values.worker.celery_schedule }} --pidfile {{ .Values.worker.celery_pidfile }}"
         ]
         securityContext:
           {{- with .Values.workerBeat.securityContext }}

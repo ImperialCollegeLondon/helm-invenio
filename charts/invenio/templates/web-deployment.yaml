@@ -32,7 +32,7 @@ spec:
         command: [
             "/bin/bash",
             "-c",
-            "uwsgi --ini /opt/invenio/src/uwsgi/uwsgi.ini",
+            "/opt/invenio/src/.venv/bin/uwsgi --ini /opt/invenio/src/uwsgi/uwsgi.ini",
         ]
         resources: {{- toYaml .Values.web.resources | nindent 10 }}
         envFrom:

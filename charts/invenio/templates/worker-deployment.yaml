@@ -31,7 +31,7 @@ spec:
           command: [
               "/bin/bash",
               "-c",
-              "celery -A {{ .Values.worker.app }} worker -c {{ .Values.worker.concurrency }} -l {{ .Values.worker.log_level }}"
+              "/opt/invenio/src/.venv/bin/celery -A {{ .Values.worker.app }} worker -c {{ .Values.worker.concurrency }} -l {{ .Values.worker.log_level }}"
           ]
           resources: {{- toYaml .Values.worker.resources | nindent 12 }}
           securityContext:
