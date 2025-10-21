@@ -110,6 +110,11 @@ worker:
 workerBeat:
   livenessProbe:
     periodSeconds: 360
+    exec:
+      command:
+        - /bin/bash
+        - -c
+        - "/opt/invenio/src/.venv/bin/celery -A {{ .Values.worker.app }} inspect ping"
 
 persistence:
   enabled: true
