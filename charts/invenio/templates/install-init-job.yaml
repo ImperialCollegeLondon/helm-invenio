@@ -11,15 +11,15 @@ metadata:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "1"
 {{/*    "helm.sh/hook-delete-policy": hook-succeeded*/}}
-  {{- $cmd := "invenio db init && invenio db create && invenio index init && invenio index queue init purge && invenio files location --default 'default-location'  $(invenio shell --no-term-title -c \"print(app.instance_path)\")'/data' && invenio roles create admin && invenio access allow superuser-access role admin" -}}
+  {{- $cmd := "/opt/invenio/src/.venv/bin/invenio db init && /opt/invenio/src/.venv/bin/invenio db create && /opt/invenio/src/.venv/bin/invenio index init && /opt/invenio/src/.venv/bin/invenio index queue init purge && /opt/invenio/src/.venv/bin/invenio files location --default 'default-location'  $(/opt/invenio/src/.venv/bin/invenio shell --no-term-title -c \"print(app.instance_path)\")'/data' && /opt/invenio/src/.venv/bin/invenio roles create admin && /opt/invenio/src/.venv/bin/invenio access allow superuser-access role admin" -}}
 {{- range $usr, $pass := .Values.invenio.default_users -}}
-  {{- $cmd = printf "%s && invenio users create --active --confirm --password=%s %s" $cmd $pass $usr -}}
+  {{- $cmd = printf "%s && /opt/invenio/src/.venv/bin/invenio users create --active --confirm --password=%s %s" $cmd $pass $usr -}}
 {{- end -}}
 {{- if and .Values.invenio.demo_data .Values.invenio.default_users -}}
-  {{- $cmd = cat $cmd "&& invenio rdm-records demo" -}}
+  {{- $cmd = cat $cmd "&& /opt/invenio/src/.venv/bin/invenio rdm-records demo" -}}
 {{- end -}}
 {{- if .Values.invenio.create_fixtures -}}
-  {{- $cmd = cat $cmd "&& invenio rdm-records fixtures" -}}
+  {{- $cmd = cat $cmd "&& /opt/invenio/src/.venv/bin/invenio rdm-records fixtures" -}}
 {{- end -}}
 
 spec:
