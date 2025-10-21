@@ -20,3 +20,7 @@ spec:
       - http01:
            ingress:
               class: {{ .Values.ingress.class }}
+              ingressTemplate:
+                metadata:
+                  annotations:
+                    kubernetes.io/ingress.class: "azure/application-gateway"
