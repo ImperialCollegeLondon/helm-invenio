@@ -145,7 +145,7 @@ postgresqlExternal:
 ingress:
   enabled: true
   tlsSecretNameOverride: "invenio-letsencrypt-secret"
-  class: "azure/application-gateway"
+  class: "azure-application-gateway"
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-production"
 
