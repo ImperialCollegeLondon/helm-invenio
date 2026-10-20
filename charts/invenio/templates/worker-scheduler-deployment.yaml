@@ -1,0 +1,120 @@
+{{- if .Values.workerScheduler.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- with .Values.workerScheduler.deployment.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  name: {{ include "invenio.fullname" . }}-worker-scheduler
+  labels:
+    {{- include "invenio.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker-scheduler
+    {{- with .Values.workerScheduler.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.workerScheduler.deployment.spec.minReadySeconds }}
+  minReadySeconds: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.workerScheduler.deployment.spec.paused }}
+  paused: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.workerScheduler.deployment.spec.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  replicas: 1 # For data safety, beat must never have more than 1 replica!
+  {{- with .Values.workerScheduler.deployment.spec.revisionHistoryLimit }}
+  revisionHistoryLimit: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: worker-scheduler
+  {{- with .Values.workerScheduler.deployment.spec.strategy }}
+  strategy: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.workerScheduler.podAnnotations }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+        app.kubernetes.io/component: worker-scheduler
+        checksum/invenio-config: {{ include (print $.Template.BasePath "/invenio-configmap.yaml") . | sha256sum }}
+      labels:
+        {{- with .Values.workerScheduler.podLabels }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+        app.kubernetes.io/component: worker-scheduler
+    spec:
+      {{- with .Values.workerScheduler.affinity }}
+      affinity:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
+      {{- with .Values.workerScheduler.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
+      {{- with .Values.workerScheduler.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
+      containers:
+      - name: worker-scheduler
+        image: {{ default .Values.worker.image (include "invenio.image" .) }}
+        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        command: [
+          "/bin/bash",
+          "-c",
+          {{ tpl (default (printf "celery -A %s beat --scheduler %s -l %s" .Values.worker.app .Values.workerScheduler.class .Values.worker.log_level) .Values.workerScheduler.commandOverride) $ | quote }}
+        ]
+        securityContext:
+          {{- with .Values.workerScheduler.securityContext }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "invenio.fullname" . }}-config
+        - secretRef:
+            name: {{ include "invenio.secretName" . }}
+        {{- with .Values.invenio.extraEnvFrom }}
+        {{- tpl (. | toYaml) $ | nindent 8 }}
+        {{- end }}
+        {{- with .Values.workerScheduler.extraEnvFrom }}
+        {{- tpl (. | toYaml) $ | nindent 8 }}
+        {{- end }}
+        env:
+        - name: TZ
+          value: {{ required "Missing .Values.global.timezone" .Values.global.timezone }}
+        {{- include "invenio.config.queue" . | nindent 8 }}
+        {{- include "invenio.config.database" . | nindent 8}}
+        {{- include "invenio.opensearch.env" . | nindent 8 }}
+        {{- with .Values.invenio.extraEnvVars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.workerScheduler.extraEnvVars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- include "invenio.config.sentry" . | nindent 8 }}
+        {{- include "invenio.config.datacite" . | nindent 8 }}
+        {{- range .Values.invenio.extra_env_from_secret }}
+        - name: {{ .name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .valueFrom.secretKeyRef.name }}
+              key: {{ .valueFrom.secretKeyRef.key }}
+        {{- end }}
+        livenessProbe: {{- tpl (.Values.workerScheduler.livenessProbe | toYaml) $ | nindent 10 }}
+        readinessProbe: {{- tpl (.Values.workerScheduler.readinessProbe | toYaml) $ | nindent 10 }}
+        startupProbe: {{- tpl (.Values.workerScheduler.startupProbe | toYaml) $ | nindent 10 }}
+        resources: {{- toYaml .Values.workerScheduler.resources | nindent 10 }}
+      securityContext:
+        {{- with .Values.workerScheduler.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

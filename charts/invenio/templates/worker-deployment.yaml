@@ -2,20 +2,55 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  {{- with .Values.worker.deployment.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   name: {{ include "invenio.fullname" . }}-worker
   labels:
     {{- include "invenio.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker
+    {{- with .Values.worker.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
+  {{- with .Values.worker.deployment.spec.minReadySeconds }}
+  minReadySeconds: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.worker.deployment.spec.paused }}
+  paused: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.worker.deployment.spec.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{- toYaml . | nindent 4 }}
+  {{- end }}
   replicas: {{ .Values.worker.replicas }}
+  {{- with .Values.worker.deployment.spec.revisionHistoryLimit }}
+  revisionHistoryLimit: {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/component: worker
+  {{- with .Values.worker.deployment.spec.strategy }}
+  strategy: {{- toYaml . | nindent 4 }}
+  {{- end }}
   template:
     metadata:
+      annotations:
+        {{- with .Values.worker.podAnnotations }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+        app.kubernetes.io/component: worker
+        checksum/invenio-config: {{ include (print $.Template.BasePath "/invenio-configmap.yaml") . | sha256sum }}
       labels:
+        {{- with .Values.worker.podLabels }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
         app.kubernetes.io/component: worker
     spec:
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
       {{- with .Values.worker.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 -}}
@@ -54,6 +89,7 @@ spec:
             value: {{ required "Missing .Values.global.timezone" .Values.global.timezone }}
           {{- include "invenio.config.queue" . | nindent 10 }}
           {{- include "invenio.config.database" . | nindent 10 }}
+          {{- include "invenio.opensearch.env" . | nindent 10 }}
           {{- with .Values.invenio.extraEnvVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
@@ -85,7 +121,9 @@ spec:
             {{- if .Values.persistence.enabled }}
             - mountPath: /opt/invenio/var/instance/data
               name: shared-volume
+              {{- if .Values.persistence.useSubPath }}
               subPath: data
+              {{- end }}
             {{- end }}
             {{- if .Values.kerberos.enabled }}
             - name: kerberos-credentials-cache
@@ -94,7 +132,16 @@ spec:
             {{- range $key, $value := .Values.invenio.vocabularies }}
             - name: vocabularies
               mountPath: "/opt/invenio/var/instance/app_data/vocabularies/{{ $key }}"
+              {{- if $.Values.persistence.useSubPath }}
               subPath: "{{ $key }}"
+              {{- end }}
+            {{- end }}
+            {{- include "invenio.opensearch.volumeMounts" . | nindent 12 }}
+            {{- with .Values.invenio.extraVolumeMounts }}
+            {{- tpl (toYaml .) $ | nindent 12 }}
+            {{- end }}
+            {{- with .Values.worker.extraVolumeMounts }}
+            {{- tpl (toYaml .) $ | nindent 12 }}
             {{- end }}
         {{- if .Values.kerberos.enabled }}
         - name: kerberos-credentials
@@ -147,6 +194,13 @@ spec:
         - name: vocabularies
           configMap:
             name: "{{ include "invenio.fullname" . }}-vocabularies"
+        {{- end }}
+        {{- include "invenio.opensearch.volumes" . | nindent 8 }}
+        {{- with .Values.invenio.extraVolumes }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+        {{- with .Values.worker.extraVolumes }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       {{- if .Values.worker.imagePullSecret }}
       imagePullSecrets:

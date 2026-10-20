@@ -108,6 +108,7 @@ worker:
         - "/opt/invenio/src/.venv/bin/celery -A {{ .Values.worker.app }} inspect ping -d celery@$(hostname)"
 
 workerBeat:
+  commandOverride: "/opt/invenio/src/.venv/bin/celery -A {{ .Values.worker.app }} beat -l {{ .Values.worker.log_level }} -s {{ .Values.worker.celery_schedule }} --pidfile {{ .Values.worker.celery_pidfile }}"
   livenessProbe:
     periodSeconds: 360
     exec:
@@ -115,6 +116,32 @@ workerBeat:
         - /bin/bash
         - -c
         - "/opt/invenio/src/.venv/bin/celery -A {{ .Values.worker.app }} inspect ping"
+
+# Celery beat running the invenio-jobs RunScheduler, for jobs configured in Administration > Jobs.
+# This only schedules jobs from the database; periodic tasks in CELERY_BEAT_SCHEDULE stay on workerBeat.
+workerScheduler:
+  enabled: true
+  commandOverride: "/opt/invenio/src/.venv/bin/celery -A {{ .Values.worker.app }} beat --scheduler {{ .Values.workerScheduler.class }} -l {{ .Values.worker.log_level }}"
+  livenessProbe:
+    periodSeconds: 360
+    exec:
+      command:
+        - /bin/bash
+        - -c
+        - "/opt/invenio/src/.venv/bin/celery -A {{ .Values.worker.app }} inspect ping"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# Maintenance pod for running invenio CLI commands (e.g. upgrade migrations) away from the web pods.
+# Scaled to 0 by default; use scripts/console.sh or `kubectl scale deploy/<release>-terminal --replicas=1`.
+terminal:
+  enabled: true
+  replicas: 0
 
 persistence:
   enabled: true

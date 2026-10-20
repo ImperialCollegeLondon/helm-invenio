@@ -32,16 +32,17 @@ spec:
           value: {{ required "Missing .Values.global.timezone" .Values.global.timezone }}
         {{- include "invenio.config.queue" . | nindent 8 }}
         {{- include "invenio.config.database" . | nindent 8 }}
+        {{- include "invenio.opensearch.env" . | nindent 8 }}
         {{- with .Values.invenio.extraEnvVars }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- include "invenio.config.sentry" . | nindent 8 }}
         volumeMounts:
           {{- range $key, $value := .Values.invenio.vocabularies }}
           - name: vocabularies
             mountPath: "/opt/invenio/var/instance/app_data/vocabularies/{{ $key }}"
             subPath: "{{ $key }}"
           {{- end }}
-        {{- include "invenio.config.sentry" . | nindent 8 }}
         {{- if .Values.web.resources }}
         resources: {{- toYaml .Values.web.resources | nindent 10 }}
         {{- end }}
