@@ -16,7 +16,7 @@ is pulled, you have to define an `imagePullSecret`:
 ```bash
 kubectl create secret docker-registry regsecret \
   --docker-server=DOCKERHOST_CHANGEME \
-  --docker-username=DOCKERUSER_CHANGEME \ 
+  --docker-username=DOCKERUSER_CHANGEME \
   --docker-password=DOCKERPASSWORD_CHANGEME \
   --docker-email=EMAIL_CHANGE_ME \
   --namespace invenio
@@ -38,16 +38,16 @@ Before installing, you need to configure a few things in a
 
 ```yaml
 ingress:
-  sslSecretName: your-ssl-secret
+  tlsSecretNameOverride: your-ssl-secret
 ```
 
 The ingress is configured using the following variables:
 
-| Parameter               | Description                      | Default           |
-|-------------------------|----------------------------------|-------------------|
-| `ingress.enabled`       | Whether to enable ingress        | `true`            |
-| `ingress.class`         | Class of the ingress if enabled  | `nginx-internal`  |
-| `ingress.sslSecretName` | The ingress ssl secret for HTTPS | `your-ssl-secret` |
+| Parameter                       | Description                      | Default           |
+|---------------------------------|----------------------------------|-------------------|
+| `ingress.enabled`               | Whether to enable ingress        | `true`            |
+| `ingress.class`                 | Class of the ingress if enabled  | `nginx-internal`  |
+| `ingress.tlsSecretNameOverride` | The ingress ssl secret for HTTPS | `your-ssl-secret` |
 
 ## Instance setup
 

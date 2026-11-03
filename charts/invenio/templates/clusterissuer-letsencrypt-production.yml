@@ -1,3 +1,4 @@
+{{- if (.Values.clusterissuer).email }}
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -18,5 +19,6 @@ spec:
     # file is present at the domain
     solvers:
       - http01:
-           ingress:
-              class: {{ .Values.ingress.class }}
+          ingress:
+            ingressClassName: {{ .Values.ingress.class }}
+{{- end }}

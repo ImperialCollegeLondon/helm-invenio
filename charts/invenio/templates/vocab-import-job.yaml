@@ -20,7 +20,7 @@ spec:
         command: [
           "/bin/bash",
           "-c",
-          'python app_data/create_imperial_community.py && invenio shell --no-term-title -c ''from ic_data_repo.tasks import update_imperial_users, update_funders_vocabulary, import_full_affilations_vocab; update_funders_vocabulary.delay("https://zenodo.org/records/15475023/files/v1.66-2025-05-20-ror-data.zip?download=1"); import_full_affilations_vocab.delay()'''
+          '/opt/invenio/src/.venv/bin/python app_data/create_imperial_community.py && /opt/invenio/src/.venv/bin/invenio shell --no-term-title -c ''from ic_data_repo.tasks import update_imperial_users, update_funders_vocabulary, import_full_affilations_vocab; update_imperial_users.delay(), update_funders_vocabulary.delay("https://zenodo.org/records/15475023/files/v1.66-2025-05-20-ror-data.zip?download=1"); import_full_affilations_vocab.delay()'''
         ]
         envFrom:
         - configMapRef:
@@ -32,16 +32,17 @@ spec:
           value: {{ required "Missing .Values.global.timezone" .Values.global.timezone }}
         {{- include "invenio.config.queue" . | nindent 8 }}
         {{- include "invenio.config.database" . | nindent 8 }}
+        {{- include "invenio.opensearch.env" . | nindent 8 }}
         {{- with .Values.invenio.extraEnvVars }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- include "invenio.config.sentry" . | nindent 8 }}
         volumeMounts:
           {{- range $key, $value := .Values.invenio.vocabularies }}
           - name: vocabularies
             mountPath: "/opt/invenio/var/instance/app_data/vocabularies/{{ $key }}"
             subPath: "{{ $key }}"
           {{- end }}
-        {{- include "invenio.config.sentry" . | nindent 8 }}
         {{- if .Values.web.resources }}
         resources: {{- toYaml .Values.web.resources | nindent 10 }}
         {{- end }}

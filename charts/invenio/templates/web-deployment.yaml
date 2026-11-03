@@ -2,21 +2,58 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  {{- with .Values.web.deployment.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   name: {{ include "invenio.fullname" . }}-web
   labels:
     {{- include "invenio.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
+    {{- with .Values.web.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
+  {{- with .Values.web.deployment.spec.minReadySeconds }}
+  minReadySeconds: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.web.deployment.spec.paused }}
+  paused: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.web.deployment.spec.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{- toYaml . | nindent 4 }}
+  {{- end }}
   replicas: {{ .Values.web.replicas }}
+  {{- with .Values.web.deployment.spec.revisionHistoryLimit }}
+  revisionHistoryLimit: {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/component: web
+  {{- with .Values.web.deployment.spec.strategy }}
+  strategy: {{- toYaml . | nindent 4 }}
+  {{- end }}
   template:
     metadata:
+      annotations:
+        app.kubernetes.io/component: web
+        checksum/invenio-config: {{ include (print $.Template.BasePath "/invenio-configmap.yaml") . | sha256sum }}
+        checksum/nginx-configmap: {{ include (print $.Template.BasePath "/nginx-configmap.yaml") . | sha256sum }}
+        checksum/uwsgi-configmap: {{ include (print $.Template.BasePath "/uwsgi-configmap.yaml") . | sha256sum }}
+        {{- with .Values.web.podAnnotations }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
       labels:
+        {{- with .Values.web.podLabels }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
         app.kubernetes.io/component: web
     spec:
       terminationGracePeriodSeconds: {{ .Values.web.terminationGracePeriodSeconds }}
+      {{- with .Values.web.affinity }}
+      affinity:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
       {{- with .Values.web.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 -}}
@@ -32,7 +69,7 @@ spec:
         command: [
             "/bin/bash",
             "-c",
-            "uwsgi --ini /opt/invenio/src/uwsgi/uwsgi.ini",
+            "/opt/invenio/src/.venv/bin/uwsgi --ini /opt/invenio/src/uwsgi/uwsgi.ini",
         ]
         resources: {{- toYaml .Values.web.resources | nindent 10 }}
         envFrom:
@@ -51,6 +88,7 @@ spec:
           value: {{ required "Missing .Values.global.timezone" .Values.global.timezone }}
         {{- include "invenio.config.queue" . | nindent 8 }}
         {{- include "invenio.config.database" . | nindent 8 }}
+        {{- include "invenio.opensearch.env" . | nindent 8 }}
         {{- with .Values.invenio.extraEnvVars }}
         {{-  toYaml . | nindent 8 }}
         {{- end }}
@@ -86,10 +124,14 @@ spec:
           {{- if .Values.persistence.enabled }}
           - mountPath: /opt/invenio/var/instance/data
             name: shared-volume
+            {{- if .Values.persistence.useSubPath }}
             subPath: data
+            {{- end }}
           - mountPath: /opt/invenio/var/instance/profiler
             name: shared-volume
+            {{- if .Values.persistence.useSubPath }}
             subPath: profiler
+            {{- end }}
           {{- end }}
           {{- if .Values.kerberos.enabled }}
           - name: kerberos-credentials-cache
@@ -98,7 +140,16 @@ spec:
           {{- range $key, $value := .Values.invenio.vocabularies }}
           - name: vocabularies
             mountPath: "/opt/invenio/var/instance/app_data/vocabularies/{{ $key }}"
+            {{- if $.Values.persistence.useSubPath }}
             subPath: "{{ $key }}"
+            {{- end }}
+          {{- end }}
+          {{- include "invenio.opensearch.volumeMounts" . | nindent 10 }}
+          {{- with .Values.invenio.extraVolumeMounts }}
+          {{- tpl (toYaml .) $ | nindent 10 }}
+          {{- end }}
+          {{- with .Values.web.extraVolumeMounts }}
+          {{- tpl (toYaml .) $ | nindent 10 }}
           {{- end }}
         securityContext:
           {{- with .Values.web.securityContext }}
@@ -135,27 +186,6 @@ spec:
           {{- with .Values.nginx.securityContext }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
-      {{- if .Values.logstash.enabled }}
-      - name: filebeat
-        image: {{ required ".Values.logstash.filebeat_image" .Values.logstash.filebeat_image }}
-        args: [
-            "-c", "/etc/filebeat.yml",
-            "-e",
-        ]
-        resources: {{- toYaml .Values.logstash.filebeat_resources | nindent 10 }}
-        volumeMounts:
-        - name: config
-          mountPath: /etc/filebeat.yml
-          readOnly: true
-          subPath: filebeat.yml
-        - name: var-log-nginx
-          mountPath: /var/log/nginx
-          readOnly: true
-        securityContext:
-          {{- with .Values.logstash.securityContext }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-      {{- end }}
       {{- if .Values.kerberos.enabled }}
       - name: kerberos-credentials
         image: {{ required "Missing .Values.kerberos.image" .Values.kerberos.image }}
@@ -218,12 +248,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       volumes:
-      {{- if .Values.logstash.enabled }}
-      - name: config
-        configMap:
-          defaultMode: 0600
-          name: filebeat-config
-      {{- end }}
       - name: nginx-config
         configMap:
           defaultMode: 420
@@ -253,6 +277,13 @@ spec:
       - name: vocabularies
         configMap:
           name: "{{ include "invenio.fullname" . }}-vocabularies"
+      {{- end }}
+      {{- include "invenio.opensearch.volumes" . | nindent 6 }}
+      {{- with .Values.invenio.extraVolumes }}
+      {{- tpl (toYaml .) $ | nindent 6 }}
+      {{- end }}
+      {{- with .Values.web.extraVolumes }}
+      {{- tpl (toYaml .) $ | nindent 6 }}
       {{- end }}
       {{- if .Values.web.imagePullSecret }}
       imagePullSecrets:

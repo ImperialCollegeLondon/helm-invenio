@@ -19,6 +19,8 @@ Invenio namespace.
 | Opensearch     | Search indexing backend             | 8 pods; 2 master, 2 data, 2 ingest and 2 coordinating |
 | Redis          | Cache and Celery broker             | 4 pods; 1 master and 3 replicas                       |                       
 | Celery workers | Background task execution           | 3 pods, 2 worker and 1 beat                           |
+| Jobs scheduler | Celery beat for invenio-jobs        | 1 pod; runs jobs scheduled in Administration > Jobs   |
+| Terminal       | Maintenance shell (optional)        | 0 pods by default; scale to 1 to run CLI commands     |
 | RabbitMQ       | Message queue for Celery tasks      | 1 pod                                                 |
 | Kubernetes     | Orchestration and scaling platform  |
 | Helm           | Deployment and configuration tool   |
@@ -354,6 +356,20 @@ kubectl scale deployment --replicas=5 web -n invenio
 ```
 
 # Administration - Run commands in pods
+
+For long-running or disruptive maintenance (e.g. the InvenioRDM v14 migration
+described in `docs/upgrading-v14.md` in the fair-data-repository), prefer the
+`terminal` deployment over a `web` pod. It runs the same image and config but
+receives no traffic, and is scaled to 0 replicas until needed:
+
+```bash
+./scripts/console.sh --namespace invenio
+# or manually:
+kubectl -n invenio scale deploy -l app.kubernetes.io/component=terminal --replicas=1
+kubectl -n invenio exec -it deploy/<release>-terminal -- bash
+kubectl -n invenio scale deploy -l app.kubernetes.io/component=terminal --replicas=0
+```
+
 
 Observe which pods we have running
 

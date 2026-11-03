@@ -2,20 +2,55 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  {{- with .Values.workerBeat.deployment.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   name: {{ include "invenio.fullname" . }}-worker-beat
   labels:
     {{- include "invenio.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker-beat
+    {{- with .Values.workerBeat.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
+  {{- with .Values.workerBeat.deployment.spec.minReadySeconds }}
+  minReadySeconds: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.workerBeat.deployment.spec.paused }}
+  paused: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.workerBeat.deployment.spec.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{- toYaml . | nindent 4 }}
+  {{- end }}
   replicas: 1 # For data safety, beat must never have more than 1 replica!
+  {{- with .Values.workerBeat.deployment.spec.revisionHistoryLimit }}
+  revisionHistoryLimit: {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/component: worker-beat
+  {{- with .Values.workerBeat.deployment.spec.strategy }}
+  strategy: {{- toYaml . | nindent 4 }}
+  {{- end }}
   template:
     metadata:
+      annotations:
+        {{- with .Values.workerBeat.podAnnotations }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+        app.kubernetes.io/component: worker-beat
+        checksum/invenio-config: {{ include (print $.Template.BasePath "/invenio-configmap.yaml") . | sha256sum }}
       labels:
+        {{- with .Values.workerBeat.podLabels }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
         app.kubernetes.io/component: worker-beat
     spec:
+      {{- with .Values.workerBeat.affinity }}
+      affinity:
+        {{- tpl (toYaml .) $ | nindent 8 -}}
+      {{- end }}
       {{- with .Values.workerBeat.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 -}}
@@ -31,7 +66,7 @@ spec:
         command: [
           "/bin/bash",
           "-c",
-          "celery -A {{ .Values.worker.app }} beat -l {{ .Values.worker.log_level }} -s {{ .Values.worker.celery_schedule }} --pidfile {{ .Values.worker.celery_pidfile }}"
+          {{ tpl (default (printf "celery -A %s beat -l %s -s %s --pidfile %s" .Values.worker.app .Values.worker.log_level .Values.worker.celery_schedule .Values.worker.celery_pidfile) .Values.workerBeat.commandOverride) $ | quote }}
         ]
         securityContext:
           {{- with .Values.workerBeat.securityContext }}
@@ -47,7 +82,16 @@ spec:
         {{- range $key, $value := .Values.invenio.vocabularies }}
         - name: vocabularies
           mountPath: "/opt/invenio/var/instance/app_data/vocabularies/{{ $key }}"
+          {{- if $.Values.persistence.useSubPath }}
           subPath: "{{ $key }}"
+          {{- end }}
+        {{- end }}
+        {{- include "invenio.opensearch.volumeMounts" . | nindent 8 }}
+        {{- with .Values.invenio.extraVolumeMounts }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+        {{- with .Values.workerBeat.extraVolumeMounts }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
         envFrom:
         - configMapRef:
@@ -65,6 +109,7 @@ spec:
           value: {{ required "Missing .Values.global.timezone" .Values.global.timezone }}
         {{- include "invenio.config.queue" . | nindent 8 }}
         {{- include "invenio.config.database" . | nindent 8}}
+        {{- include "invenio.opensearch.env" . | nindent 8 }}
         {{- with .Values.invenio.extraEnvVars }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -101,6 +146,13 @@ spec:
       - name: vocabularies
         configMap:
           name: "{{ include "invenio.fullname" . }}-vocabularies"
+      {{- end }}
+      {{- include "invenio.opensearch.volumes" . | nindent 6 }}
+      {{- with .Values.invenio.extraVolumes }}
+      {{- tpl (toYaml .) $ | nindent 6 }}
+      {{- end }}
+      {{- with .Values.worker.extraVolumes }}
+      {{- tpl (toYaml .) $ | nindent 6 }}
       {{- end }}
       {{- if .Values.worker.imagePullSecret }}
       imagePullSecrets:
